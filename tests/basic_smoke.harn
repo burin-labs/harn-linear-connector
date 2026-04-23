@@ -1,0 +1,12 @@
+import { activate, kinds, normalize_inbound, provider_id } from "../src/lib"
+
+pipeline default() {
+  assert(provider_id() == "linear", "provider id")
+  assert(kinds() == ["webhook"], "trigger kinds")
+  let active = activate([{id: "main"}])
+  assert(active.bindings == 1, "activation counts bindings")
+  let event = normalize_inbound({payload: {type: "Issue", action: "create"}})
+  assert(event.provider == "linear", "normalized provider")
+  assert(event.event == "Issue", "normalized event")
+  assert(event.action == "create", "normalized action")
+}
