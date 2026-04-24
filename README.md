@@ -62,9 +62,6 @@ trigger triage on linear {
 
 ## Development
 
-This repo is being built out by Claude Code sessions following a structured
-prompt. **Read [SESSION_PROMPT.md](./SESSION_PROMPT.md) before making changes.**
-
 The connector exports `provider_id`, `kinds`, `payload_schema`, `init`,
 `activate`, `shutdown`, `normalize_inbound`, and `call`. `normalize_inbound`
 returns `NormalizeResult` v1:
@@ -87,6 +84,7 @@ harn fmt --check src/lib.harn
 harn connector check .
 for test in tests/*.harn; do harn run "$test"; done
 ```
+
 
 ## License
 

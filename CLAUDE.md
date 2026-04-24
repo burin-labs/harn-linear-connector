@@ -1,9 +1,5 @@
 # CLAUDE.md — harn-linear-connector
 
-**Read [SESSION_PROMPT.md](./SESSION_PROMPT.md) first.** It contains the
-pivot context, the connector interface contract, the 60-second replay
-window detail, and the v0 milestones.
-
 ## Quick repo conventions
 
 - File extension: `.harn`. Use `snake_case` for filenames.
