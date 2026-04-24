@@ -59,11 +59,6 @@ trigger triage on linear {
 }
 ```
 
-## Development
-
-This repo is being built out by Claude Code sessions following a structured
-prompt. **Read [SESSION_PROMPT.md](./SESSION_PROMPT.md) before making changes.**
-
 ## License
 
 Dual-licensed under MIT and Apache-2.0.
