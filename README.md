@@ -19,14 +19,11 @@ not bundled here.
 
 ## Install
 
-Once Harn package management v0
-([harn#345](https://github.com/burin-labs/harn/issues/345)) lands:
-
 ```sh
-harn add github.com/burin-labs/harn-linear-connector@v0.1.0
+harn add github.com/burin-labs/harn-linear-connector@main
 ```
 
-Until then, depend on this repo via a path import:
+For local multi-repo development, a path dependency is still useful:
 
 ```toml
 [dependencies]
@@ -36,7 +33,7 @@ harn-linear-connector = { path = "../harn-linear-connector" }
 ## Usage
 
 ```harn
-import linear_connector from "harn-linear-connector"
+import linear_connector from "harn-linear-connector/default"
 
 trigger triage on linear {
   source = {
