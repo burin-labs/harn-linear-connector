@@ -8,5 +8,50 @@ repository = "https://github.com/burin-labs/harn-linear-connector"
 [exports]
 default = "src/lib.harn"
 
+[[providers]]
+id = "linear"
+connector = { harn = "src/lib.harn" }
+
+[connector_contract]
+version = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "issue update webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "93298f60718be962cefea14569c23019c3b76e541caf93979f6d5b9d0c67a83e", "linear-delivery" = "delivery-contract-issue" }
+body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_contract_issue\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"ISS-1\",\"title\":\"Contract fixture\"},\"updatedFrom\":{\"title\":\"Old title\"}}"
+expect_type = "event"
+expect_kind = "linear.issue.update"
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "comment create webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "94e829e779afd1958e8acc82692b978336aa85c6d8578711106f4d508bf40183", "linear-delivery" = "delivery-contract-comment" }
+body = "{\"action\":\"create\",\"type\":\"Comment\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_contract_comment\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"COM-1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"ISS-1\"}}}"
+expect_type = "event"
+expect_kind = "linear.comment.create"
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "unsupported action"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "106ec93bca57d43fc381bacf93e4cd0a9e2aed183dab457d69d0d5669f60238f", "linear-delivery" = "delivery-contract-unsupported" }
+body = "{\"action\":\"archive\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_contract_unsupported\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"ISS-2\",\"title\":\"Unsupported\"}}"
+expect_type = "reject"
+expect_event_count = 0
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "invalid signature"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "0000000000000000000000000000000000000000000000000000000000000000", "linear-delivery" = "delivery-contract-invalid" }
+body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_contract_issue\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"ISS-1\",\"title\":\"Contract fixture\"},\"updatedFrom\":{\"title\":\"Old title\"}}"
+expect_type = "reject"
+expect_event_count = 0
+
 # Harn-side package dependencies live here. This package currently has none.
 [dependencies]

@@ -9,9 +9,10 @@ outbound GraphQL queries.
 > [burin-labs/harn](https://github.com/burin-labs/harn). See the
 > [Pure-Harn Connectors Pivot epic #350](https://github.com/burin-labs/harn/issues/350).
 
-This is an **inbound + outbound** connector implementing the Harn Connector
-interface defined in
-[harn#346](https://github.com/burin-labs/harn/issues/346).
+This is an **inbound + outbound** connector implementing Harn Connector
+Contract v1. It requires a Harn version that includes
+[harn#464](https://github.com/burin-labs/harn/issues/464) and
+[harn#468](https://github.com/burin-labs/harn/issues/468).
 
 Linear has no OpenAPI spec — its public API is GraphQL. A typed
 `linear-sdk-harn` would be a separate, GraphQL-codegen-based effort and is
@@ -63,6 +64,29 @@ trigger triage on linear {
 
 This repo is being built out by Claude Code sessions following a structured
 prompt. **Read [SESSION_PROMPT.md](./SESSION_PROMPT.md) before making changes.**
+
+The connector exports `provider_id`, `kinds`, `payload_schema`, `init`,
+`activate`, `shutdown`, `normalize_inbound`, and `call`. `normalize_inbound`
+returns `NormalizeResult` v1:
+
+- valid Linear webhooks return `{ type: "event", event: { kind, dedupe_key, payload } }`
+- failed signature, missing timestamp, replay-window, and unsupported-action
+  cases return `{ type: "reject", status, headers, body }`
+
+Dedupe keys are deterministic. The connector prefers `Linear-Delivery`, then
+`webhookId`, and finally `sha256(raw_body)`. Event kinds are
+`linear.<resource>.<action>`, for example `linear.issue.update` and
+`linear.comment.create`.
+
+Run the local contract and fixture suite with:
+
+```sh
+harn check src/lib.harn
+harn lint src/lib.harn
+harn fmt --check src/lib.harn
+harn connector check .
+for test in tests/*.harn; do harn run "$test"; done
+```
 
 ## License
 
