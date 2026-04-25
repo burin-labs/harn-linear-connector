@@ -1,0 +1,47 @@
+import { call } from "../src/lib.harn"
+
+pipeline test(task) {
+  http_mock(
+    "POST",
+    "https://linear.test/graphql",
+    {
+    responses: [
+    {status: 200, headers: {["x-complexity"]: "12"}, body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}"},
+    {
+    status: 200,
+    body: "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
+  },
+  ],
+  },
+  )
+  let ok = call(
+    "graphql",
+    {
+    api_base_url: "https://linear.test/graphql",
+    api_key: "lin_api_key",
+    query: "query Viewer { viewer { id } }",
+  },
+  )
+  assert_eq(ok.data.viewer.id, "usr_1")
+  assert_eq(ok.meta.observed_complexity, 12)
+  let calls = http_mock_calls()
+  assert_eq(calls[0].headers.Authorization, "lin_api_key")
+  let sent = json_parse(calls[0].body)
+  assert_eq(sent["query"], "query Viewer { viewer { id } }")
+  let failed = try {
+    call(
+    "graphql",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    query: "query Viewer { viewer { id } }",
+  },
+  )
+  }
+  assert(is_err(failed))
+  let error = unwrap_err(failed)
+  assert_eq(error.errors[0].message, "Invalid token")
+  assert_eq(error.errors[0].extensions.code, "AUTHENTICATION_ERROR")
+  let all_calls = http_mock_calls()
+  assert_eq(all_calls[1].headers.Authorization, "Bearer oauth-token")
+}
