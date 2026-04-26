@@ -1,15 +1,54 @@
 import { call } from "../src/lib.harn"
 
 pipeline test(task) {
+  http_mock_clear()
   http_mock(
     "POST",
     "https://linear.test/graphql",
     {
     responses: [
-    {status: 200, headers: {["x-complexity"]: "12"}, body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}"},
+    {
+    status: 200,
+    headers: {
+    ["x-complexity"]: "12",
+    ["x-ratelimit-requests-limit"]: "1500",
+    ["x-ratelimit-requests-remaining"]: "1499",
+  },
+    body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}",
+  },
     {
     status: 200,
     body: "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
+  },
+    {
+    status: 200,
+    headers: {["x-complexity"]: "48"},
+    body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
+  },
+    {
+    status: 200,
+    body: "{\"data\":{\"issueUpdate\":{\"success\":true,\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Updated\"}}}}",
+  },
+    {
+    status: 200,
+    body: "{\"data\":{\"commentCreate\":{\"success\":true,\"comment\":{\"id\":\"com_1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\"}}}}}",
+  },
+    {
+    status: 200,
+    body: "{\"errors\":[{\"message\":\"Unknown argument \\\"query\\\" on field \\\"searchIssues\\\"\",\"extensions\":{\"code\":\"GRAPHQL_VALIDATION_FAILED\"}}]}",
+  },
+    {
+    status: 200,
+    body: "{\"data\":{\"searchIssues\":{\"nodes\":[{\"id\":\"iss_2\",\"identifier\":\"ENG-2\",\"title\":\"Search hit\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
+  },
+    {
+    status: 200,
+    body: "{\"data\":{\"viewer\":{\"id\":\"usr_partial\"}},\"errors\":[{\"message\":\"field failed\",\"path\":[\"viewer\",\"name\"],\"extensions\":{\"code\":\"INTERNAL_ERROR\"}}]}",
+  },
+    {
+    status: 400,
+    headers: {["x-ratelimit-requests-reset"]: "1776859300"},
+    body: "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
   },
   ],
   },
@@ -24,6 +63,7 @@ pipeline test(task) {
   )
   assert_eq(ok.data.viewer.id, "usr_1")
   assert_eq(ok.meta.observed_complexity, 12)
+  assert_eq(ok.meta.rate_limit.requests_limit, 1500)
   let calls = http_mock_calls()
   assert_eq(calls[0].headers.Authorization, "lin_api_key")
   let sent = json_parse(calls[0].body)
@@ -40,8 +80,88 @@ pipeline test(task) {
   }
   assert(is_err(failed))
   let error = unwrap_err(failed)
+  assert_eq(error.code, "graphql_error")
   assert_eq(error.errors[0].message, "Invalid token")
   assert_eq(error.errors[0].extensions.code, "AUTHENTICATION_ERROR")
+  let issues = call(
+    "list_issues",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    filter: {priority: {lte: 2}},
+    first: 10,
+    after: "cursor-0",
+  },
+  )
+  assert_eq(issues.nodes[0].identifier, "ENG-1")
+  assert_eq(issues.pageInfo.hasNextPage, true)
+  assert_eq(issues.meta.observed_complexity, 48)
+  let updated = call(
+    "update_issue",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    id: "iss_1",
+    changes: {title: "Updated"},
+  },
+  )
+  assert_eq(updated.success, true)
+  assert_eq(updated.issue.title, "Updated")
+  let comment = call(
+    "create_comment",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    issue_id: "iss_1",
+    body: "Looks good",
+  },
+  )
+  assert_eq(comment.comment.id, "com_1")
+  let search = call(
+    "search",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    query: "connector",
+    first: 5,
+  },
+  )
+  assert_eq(search.nodes[0].identifier, "ENG-2")
+  let partial = try {
+    call(
+    "graphql",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    query: "query Viewer { viewer { id name } }",
+  },
+  )
+  }
+  assert(is_err(partial))
+  let partial_error = unwrap_err(partial)
+  assert_eq(partial_error.code, "graphql_error")
+  assert_eq(partial_error.data.viewer.id, "usr_partial")
+  let limited = try {
+    call(
+    "graphql",
+    {
+    api_base_url: "https://linear.test/graphql",
+    access_token: "oauth-token",
+    query: "query Viewer { viewer { id } }",
+  },
+  )
+  }
+  assert(is_err(limited))
+  let limited_error = unwrap_err(limited)
+  assert_eq(limited_error.code, "rate_limited")
+  assert_eq(limited_error.status, 400)
+  assert_eq(limited_error.meta.rate_limit.requests_reset, 1776859300)
   let all_calls = http_mock_calls()
   assert_eq(all_calls[1].headers.Authorization, "Bearer oauth-token")
+  assert(contains(json_parse(all_calls[2].body).query, "issues("))
+  assert_eq(json_parse(all_calls[2].body).operationName, "HarnLinearListIssues")
+  assert(contains(json_parse(all_calls[3].body).query, "issueUpdate"))
+  assert(contains(json_parse(all_calls[4].body).query, "commentCreate"))
+  assert(contains(json_parse(all_calls[5].body).query, "searchIssues"))
+  assert_eq(json_parse(all_calls[6].body).variables.term, "connector")
 }
