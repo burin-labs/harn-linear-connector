@@ -14,9 +14,11 @@ Contract v1. It requires a Harn version that includes
 [harn#464](https://github.com/burin-labs/harn/issues/464) and
 [harn#468](https://github.com/burin-labs/harn/issues/468).
 
-Linear has no OpenAPI spec — its public API is GraphQL. A typed
-`linear-sdk-harn` would be a separate, GraphQL-codegen-based effort and is
-not bundled here.
+Linear has no OpenAPI spec: its public API is GraphQL. For v0.1 this package
+keeps a small hand-written GraphQL helper layer in `src/lib.harn` instead of
+introducing a separate `linear-sdk-harn` package. That keeps the connector
+self-contained while still giving the production methods argument validation,
+stable query documents, mocked tests, and one shared error/rate-limit path.
 
 ## Install
 
@@ -60,6 +62,78 @@ trigger triage on linear {
 }
 ```
 
+## Configuration
+
+Inbound webhooks require the Linear webhook signing secret. The connector
+checks `raw.signing_secret`, `raw.metadata.signing_secret`,
+`binding.config.signing_secret`, or `binding.config.secrets.signing_secret`;
+otherwise it reads `linear/signing-secret` through `secret_get`.
+
+Outbound calls require one of:
+
+- `access_token` or `access_token_secret` for OAuth tokens. Requests use
+  `Authorization: Bearer <token>`.
+- `api_key` or `api_key_secret` for personal API keys. Requests use
+  `Authorization: <api_key>`.
+
+Use OAuth for workspace/user integrations and personal API keys only for local
+scripts or private automation. Minimum OAuth scopes depend on the methods used:
+
+- `read` for `list_issues`, `search`, and read-only `graphql` queries.
+- `write` or narrower write scopes for mutations.
+- `comments:create` is enough for `create_comment`.
+- `issues:create` is only needed if future recipes add issue creation.
+- Avoid `admin`; this connector does not require it for the MVP methods.
+
+## Inbound Events
+
+Supported Linear webhook resources are:
+
+- `Issue` -> `linear.issue.<action>`
+- `Comment` / `IssueComment` -> `linear.comment.<action>`
+- `IssueLabel` -> `linear.issue_label.<action>`
+- `Project` / `ProjectUpdate` -> `linear.project.<action>`
+- `Cycle` -> `linear.cycle.<action>`
+- `Customer` -> `linear.customer.<action>`
+- `CustomerRequest` -> `linear.customer_request.<action>`
+
+Actions are `create`, `update`, and `remove`. Unknown resources are normalized
+with their lower-case resource name; unknown actions are rejected. Dedupe keys
+prefer `Linear-Delivery`, then `webhookId`, then `sha256(raw_body)`.
+
+## Outbound Methods
+
+`call("graphql", args)` is the escape hatch. It accepts `query`, optional
+`variables`, optional `operation_name` / `operationName`, auth, and optional
+`api_base_url`.
+
+Typed MVP helpers are local to this package:
+
+- `list_issues({ filter?, first?, after?, include_archived? })`
+- `update_issue({ id, changes })`
+- `create_comment({ issue_id, body })`
+- `search({ query, first? })`
+
+Connection-returning methods preserve Linear pagination data in `pageInfo`.
+Callers should pass `pageInfo.endCursor` as `after` while
+`pageInfo.hasNextPage` is true. `search` uses Linear's `searchIssues` field and
+falls back from the newer `query` argument to the older `term` argument when
+Linear returns a GraphQL validation error.
+
+GraphQL responses always include `meta` on success. Typed helper return objects
+also receive this `meta` field:
+
+- `observed_complexity`
+- `complexity_estimate` as a best-effort local hint
+- `complexity_warning`
+- `rate_limit.requests_*`
+- `rate_limit.complexity_*`
+
+GraphQL errors throw structured objects. Partial data is preserved on
+`error.data`, GraphQL errors are preserved on `error.errors`, and rate-limit
+responses are classified as `error.code == "rate_limited"` when Linear returns
+HTTP 429 or a GraphQL error with `extensions.code == "RATELIMITED"`.
+
 ## Development
 
 The connector exports `provider_id`, `kinds`, `payload_schema`, `init`,
@@ -78,6 +152,7 @@ Dedupe keys are deterministic. The connector prefers `Linear-Delivery`, then
 Run the local contract and fixture suite with:
 
 ```sh
+harn --version
 harn check src/lib.harn
 harn lint src/lib.harn
 harn fmt --check src/lib.harn
@@ -85,6 +160,11 @@ harn connector check .
 for test in tests/*.harn; do harn run "$test"; done
 ```
 
+CI installs the pinned Harn CLI from `.harn-version` via
+`cargo install harn-cli --version "$(cat .harn-version)" --locked`, then runs
+the same checks plus a clean package-install smoke. Local development should use
+the installed CLI and this package's `harn.toml`; it should not depend on a
+sibling `~/projects/harn` checkout.
 
 ## License
 

@@ -37,6 +37,71 @@ expect_event_count = 1
 
 [[connector_contract.fixtures]]
 provider = "linear"
+name = "issue label update webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "2769efde0253df7942be7ca5099b3c78226586365570aaecd2b6a8e6356946b6", "linear-delivery" = "delivery-contract-label" }
+body = "{\"action\":\"update\",\"type\":\"IssueLabel\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_label\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"LBL-1\",\"name\":\"bug\"}}"
+expect_type = "event"
+expect_kind = "linear.issue_label.update"
+expect_dedupe_key = "linear:delivery-contract-label"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "IssueLabel", action = "update", data = { id = "LBL-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "project update webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "6d46939428a0eb36e5239197f91c7ecb7c0f44c495bd638001a75d16bef07014", "linear-delivery" = "delivery-contract-project" }
+body = "{\"action\":\"update\",\"type\":\"Project\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_project\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"PRJ-1\",\"name\":\"Linear MVP\"}}"
+expect_type = "event"
+expect_kind = "linear.project.update"
+expect_dedupe_key = "linear:delivery-contract-project"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "Project", action = "update", data = { id = "PRJ-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "cycle update webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "b86ef446dd2b685048c3699a522b56c39ca8aafc49c8204c155bc4e04b88f539", "linear-delivery" = "delivery-contract-cycle" }
+body = "{\"action\":\"update\",\"type\":\"Cycle\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_cycle\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"CYC-1\",\"name\":\"Cycle 1\"}}"
+expect_type = "event"
+expect_kind = "linear.cycle.update"
+expect_dedupe_key = "linear:delivery-contract-cycle"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "Cycle", action = "update", data = { id = "CYC-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "customer update webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "3ccebcafe21717a6c8ffedbe9e6b16220cede6bc2e4dba63691cc8da6596dead", "linear-delivery" = "delivery-contract-customer" }
+body = "{\"action\":\"update\",\"type\":\"Customer\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_customer\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"CUS-1\",\"name\":\"Acme\"}}"
+expect_type = "event"
+expect_kind = "linear.customer.update"
+expect_dedupe_key = "linear:delivery-contract-customer"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "Customer", action = "update", data = { id = "CUS-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
+name = "customer request create webhook"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "937a03553fda1363a9299ff60af9981e53d452caea3683a3afdde9ac8ef7e627", "linear-delivery" = "delivery-contract-customer-request" }
+body = "{\"action\":\"create\",\"type\":\"CustomerRequest\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_customer_request\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"REQ-1\",\"title\":\"Need this shipped\"}}"
+expect_type = "event"
+expect_kind = "linear.customer_request.create"
+expect_dedupe_key = "linear:delivery-contract-customer-request"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "CustomerRequest", action = "create", data = { id = "REQ-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
 name = "unsupported action"
 kind = "webhook"
 headers = { "content-type" = "application/json", "linear-signature" = "106ec93bca57d43fc381bacf93e4cd0a9e2aed183dab457d69d0d5669f60238f", "linear-delivery" = "delivery-contract-unsupported" }

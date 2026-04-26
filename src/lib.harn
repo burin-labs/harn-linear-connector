@@ -8,6 +8,30 @@ fn __default_api_base_url() {
   return "https://api.linear.app/graphql"
 }
 
+fn __complexity_warning_threshold() {
+  return 5000
+}
+
+fn __list_issues_query() {
+  return "query HarnLinearListIssues($filter: IssueFilter, $first: Int, $after: String, $includeArchived: Boolean) { issues(filter: $filter, first: $first, after: $after, includeArchived: $includeArchived) { nodes { id identifier title priority estimate dueDate url createdAt updatedAt state { id name type } team { id key name } assignee { id name email } project { id name } cycle { id name } labels { nodes { id name } } } pageInfo { hasNextPage endCursor } } }"
+}
+
+fn __update_issue_query() {
+  return "mutation HarnLinearUpdateIssue($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success issue { id identifier title priority estimate dueDate url updatedAt state { id name type } assignee { id name email } project { id name } cycle { id name } labels { nodes { id name } } } } }"
+}
+
+fn __create_comment_query() {
+  return "mutation HarnLinearCreateComment($input: CommentCreateInput!) { commentCreate(input: $input) { success comment { id body url createdAt user { id name } issue { id identifier title } } } }"
+}
+
+fn __search_issues_query() {
+  return "query HarnLinearSearchIssues($query: String!, $first: Int) { searchIssues(query: $query, first: $first) { nodes { id identifier title url priority state { id name type } team { id key name } } pageInfo { hasNextPage endCursor } } }"
+}
+
+fn __search_issues_term_query() {
+  return "query HarnLinearSearchIssues($term: String!, $first: Int) { searchIssues(term: $term, first: $first) { nodes { id identifier title url priority state { id name type } team { id key name } } pageInfo { hasNextPage endCursor } } }"
+}
+
 fn __header(headers, name) {
   let wanted = lowercase(name)
   for entry in headers ?? {} {
@@ -236,6 +260,100 @@ fn __graphql_errors(payload) {
   return []
 }
 
+fn __graphql_error_codes(errors) {
+  return (errors ?? []).map({ error -> to_string(error?.extensions?.code ?? "") })
+}
+
+fn __has_graphql_error_code(errors, wanted) {
+  for code in __graphql_error_codes(errors) {
+    if lowercase(code) == lowercase(wanted) {
+      return true
+    }
+  }
+  return false
+}
+
+fn __graphql_error_message(status, errors) {
+  if len(errors ?? []) == 0 {
+    return "linear GraphQL request failed with status " + to_string(status)
+  }
+  return "linear GraphQL request failed with status " + to_string(status) + ": "
+    + to_string(errors[0]?.message ?? "Linear GraphQL error")
+}
+
+fn __rate_limited(status, errors) {
+  return status == 429 || (status == 400 && __has_graphql_error_code(errors, "RATELIMITED"))
+}
+
+fn __int_header(headers, name) {
+  let value = __dict_header(headers, name)
+  if value == nil || trim(to_string(value)) == "" {
+    return nil
+  }
+  return to_int(value)
+}
+
+fn __complexity_estimate(query, variables) {
+  if query == nil || trim(query) == "" {
+    return nil
+  }
+  let requested = variables?.first
+  if requested != nil && contains(query, "nodes") {
+    return to_int(requested) + 1
+  }
+  if contains(query, "first: 10") {
+    return 14
+  }
+  if contains(query, "nodes") {
+    return 51
+  }
+  return 2
+}
+
+fn __graphql_meta(headers, query, variables = nil) {
+  let estimate = __complexity_estimate(query, variables ?? {})
+  let observed = __int_header(headers, "x-complexity")
+  let complexity = observed ?? estimate ?? 0
+  return {
+    complexity_estimate: estimate,
+    observed_complexity: observed ?? 0,
+    complexity_warning: complexity >= __complexity_warning_threshold(),
+    rate_limit: {
+    requests_limit: __int_header(headers, "x-ratelimit-requests-limit"),
+    requests_remaining: __int_header(headers, "x-ratelimit-requests-remaining"),
+    requests_reset: __int_header(headers, "x-ratelimit-requests-reset"),
+    complexity_limit: __int_header(headers, "x-ratelimit-complexity-limit"),
+    complexity_remaining: __int_header(headers, "x-ratelimit-complexity-remaining"),
+    complexity_reset: __int_header(headers, "x-ratelimit-complexity-reset"),
+  },
+  }
+}
+
+fn __required_string(args, field) {
+  let value = args?[field]
+  if value == nil || trim(to_string(value)) == "" {
+    throw {message: "linear " + field + " is required", code: "invalid_args", field: field}
+  }
+  return to_string(value)
+}
+
+fn __extract_graphql_field(envelope, field) {
+  let value = envelope?.data?[field]
+  if value == nil {
+    throw {
+      message: "linear connector response missing `" + field + "` GraphQL field",
+      code: "missing_graphql_field",
+      field: field,
+      data: envelope?.data,
+      meta: envelope?.meta,
+    }
+  }
+  if type_of(value) == "dict" {
+    return value + {meta: envelope?.meta}
+  }
+  return {value: value, meta: envelope?.meta}
+}
+
 fn __graphql(args) {
   let query = args?.query
   if query == nil || trim(query) == "" {
@@ -270,20 +388,111 @@ fn __graphql(args) {
   }
   let errors = __graphql_errors(payload)
   if response.status < 200 || response.status >= 300 || len(errors) > 0 {
-    throw {message: "linear GraphQL request failed", status: response.status, errors: errors}
+    let meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
+    let code = if __rate_limited(response.status, errors) {
+      "rate_limited"
+    } else {
+      if len(errors) > 0 {
+        "graphql_error"
+      } else {
+        "http_error"
+      }
+    }
+    throw {
+      message: __graphql_error_message(response.status, errors),
+      code: code,
+      status: response.status,
+      errors: errors,
+      data: payload?.data,
+      meta: meta,
+    }
   }
-  let meta = {
-    observed_complexity: to_int(__dict_header(response?.headers, "x-complexity") ?? 0),
-    rate_limit: {
-    requests_limit: __dict_header(response?.headers, "x-ratelimit-requests-limit"),
-    requests_remaining: __dict_header(response?.headers, "x-ratelimit-requests-remaining"),
-    requests_reset: __dict_header(response?.headers, "x-ratelimit-requests-reset"),
-    complexity_limit: __dict_header(response?.headers, "x-ratelimit-complexity-limit"),
-    complexity_remaining: __dict_header(response?.headers, "x-ratelimit-complexity-remaining"),
-    complexity_reset: __dict_header(response?.headers, "x-ratelimit-complexity-reset"),
-  },
-  }
+  let meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
   return payload + {meta: meta}
+}
+
+fn __list_issues(args) {
+  return __extract_graphql_field(
+    __graphql(
+    args ?? {}
+    + {
+    query: __list_issues_query(),
+    variables: {
+    filter: args?.filter,
+    first: args?.first,
+    after: args?.after,
+    includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
+  },
+    operation_name: "HarnLinearListIssues",
+  },
+  ),
+    "issues",
+  )
+}
+
+fn __update_issue(args) {
+  return __extract_graphql_field(
+    __graphql(
+    args ?? {}
+    + {
+    query: __update_issue_query(),
+    variables: {id: __required_string(args, "id"), input: args?.changes ?? {}},
+    operation_name: "HarnLinearUpdateIssue",
+  },
+  ),
+    "issueUpdate",
+  )
+}
+
+fn __create_comment(args) {
+  return __extract_graphql_field(
+    __graphql(
+    args ?? {}
+    + {
+    query: __create_comment_query(),
+    variables: {input: {issueId: __required_string(args, "issue_id"), body: __required_string(args, "body")}},
+    operation_name: "HarnLinearCreateComment",
+  },
+  ),
+    "commentCreate",
+  )
+}
+
+fn __search(args) {
+  let first = args?.first ?? 10
+  let query = __required_string(args, "query")
+  let primary = try {
+    __extract_graphql_field(
+    __graphql(
+    args ?? {}
+    + {
+    query: __search_issues_query(),
+    variables: {query: query, first: first},
+    operation_name: "HarnLinearSearchIssues",
+  },
+  ),
+    "searchIssues",
+  )
+  }
+  if is_ok(primary) {
+    return unwrap(primary)
+  }
+  let err = unwrap_err(primary)
+  if !contains(to_string(err?.message ?? ""), "Unknown argument")
+    && !__has_graphql_error_code(err?.errors, "GRAPHQL_VALIDATION_FAILED") {
+    throw err
+  }
+  return __extract_graphql_field(
+    __graphql(
+    args ?? {}
+    + {
+    query: __search_issues_term_query(),
+    variables: {term: query, first: first},
+    operation_name: "HarnLinearSearchIssues",
+  },
+  ),
+    "searchIssues",
+  )
 }
 
 /** Return the Harn provider id for this connector. */
@@ -355,49 +564,16 @@ pub fn call(method, args) {
     return __graphql(args ?? {})
   }
   if method == "list_issues" {
-    return __graphql(
-      args ?? {}
-      + {
-      query: "query HarnLinearListIssues($filter: IssueFilter, $first: Int, $after: String, $includeArchived: Boolean) { issues(filter: $filter, first: $first, after: $after, includeArchived: $includeArchived) { nodes { id identifier title priority state { id name type } assignee { id name email } team { id key name } } pageInfo { hasNextPage endCursor } } }",
-      variables: {
-      filter: args?.filter,
-      first: args?.first,
-      after: args?.after,
-      includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
-    },
-      operation_name: "HarnLinearListIssues",
-    },
-    ).data.issues
+    return __list_issues(args ?? {})
   }
   if method == "update_issue" {
-    return __graphql(
-      args ?? {}
-      + {
-      query: "mutation HarnLinearUpdateIssue($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success issue { id identifier title priority state { id name type } } } }",
-      variables: {id: args?.id, input: args?.changes ?? {}},
-      operation_name: "HarnLinearUpdateIssue",
-    },
-    ).data.issueUpdate
+    return __update_issue(args ?? {})
   }
   if method == "create_comment" {
-    return __graphql(
-      args ?? {}
-      + {
-      query: "mutation HarnLinearCreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id body issue { id identifier } } } }",
-      variables: {issueId: args?.issue_id ?? args?.issueId, body: args?.body},
-      operation_name: "HarnLinearCreateComment",
-    },
-    ).data.commentCreate
+    return __create_comment(args ?? {} + {issue_id: args?.issue_id ?? args?.issueId})
   }
   if method == "search" {
-    return __graphql(
-      args ?? {}
-      + {
-      query: "query HarnLinearSearch($query: String!, $first: Int) { issueSearch(query: $query, first: $first) { nodes { id identifier title priority } pageInfo { hasNextPage endCursor } } }",
-      variables: {query: args?.query, first: args?.first ?? 10},
-      operation_name: "HarnLinearSearch",
-    },
-    ).data.issueSearch
+    return __search(args ?? {})
   }
   throw "method_not_found:" + method
 }
