@@ -32,7 +32,7 @@ pipeline test(task) {
         },
         {
           status: 200,
-          headers: {["x-complexity"]: "48"},
+          headers: {["x-complexity"]: "48", ["x-ratelimit-requests-remaining"]: "49"},
           body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
         },
         {
@@ -111,7 +111,9 @@ pipeline test(task) {
   )
   assert_eq(issues.nodes[0].identifier, "ENG-1")
   assert_eq(issues.pageInfo.hasNextPage, true)
+  assert_eq(issues.page.has_next_page, true)
   assert_eq(issues.meta.observed_complexity, 48)
+  assert_eq(issues.meta.rate_limit.requests_remaining, 49)
   let updated = call(
     "update_issue",
     {
@@ -184,10 +186,10 @@ pipeline test(task) {
   let malformed_header = call(
     "graphql",
     {
-    api_base_url: "https://linear.test/graphql",
-    api_key: "lin_api_key",
-    query: "query Viewer { viewer { id } }",
-  },
+      api_base_url: "https://linear.test/graphql",
+      api_key: "lin_api_key",
+      query: "query Viewer { viewer { id } }",
+    },
   )
   assert_eq(malformed_header.data.viewer.id, "usr_3")
   assert_eq(malformed_header.meta.observed_complexity, 0)
