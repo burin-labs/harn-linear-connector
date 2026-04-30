@@ -5,14 +5,15 @@ webhook signatures, enforces Linear's 60-second replay window, normalizes
 Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
-> **Status: pre-alpha** — actively developed in tandem with
-> [burin-labs/harn](https://github.com/burin-labs/harn). See the
-> [Pure-Harn Connectors Pivot epic #350](https://github.com/burin-labs/harn/issues/350).
+> **Status: pre-alpha** — this repo is a first-party connector package for
+> Harn `0.7.42` or newer. CI installs the pinned CLI version from
+> `.harn-version`.
 
 This is an **inbound + outbound** connector implementing Harn Connector
-Contract v1. It requires a Harn version that includes
-[harn#464](https://github.com/burin-labs/harn/issues/464) and
-[harn#468](https://github.com/burin-labs/harn/issues/468).
+Contract v1. The canonical contract docs live in the Harn repo:
+
+- [Connector authoring](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md)
+- [Connector architecture](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/architecture.md)
 
 Linear has no OpenAPI spec: its public API is GraphQL. For v0.1 this package
 keeps a small hand-written GraphQL helper layer in `src/lib.harn` instead of
@@ -66,8 +67,9 @@ trigger triage on linear {
 
 Inbound webhooks require the Linear webhook signing secret. The connector
 checks `raw.signing_secret`, `raw.metadata.signing_secret`,
-`binding.config.signing_secret`, or `binding.config.secrets.signing_secret`;
-otherwise it reads `linear/signing-secret` through `secret_get`.
+`binding.config.signing_secret`, `binding.config.secrets.signing_secret`, or
+managed-ingress secret aliases in `raw.metadata.secret_ids`; otherwise it reads
+`linear/signing-secret` through `secret_get`.
 
 Outbound calls require one of:
 

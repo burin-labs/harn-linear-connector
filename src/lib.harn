@@ -50,7 +50,7 @@ fn __binding_for_raw(raw) {
   let binding_id = raw?.binding_id ?? raw?.metadata?.binding_id
   if binding_id != nil {
     for binding in connector_state.bindings {
-      if binding.id == binding_id {
+      if binding.id == binding_id || binding.binding_id == binding_id {
         return binding
       }
     }
@@ -76,7 +76,18 @@ fn __secret_value(value, fallback_id) {
   return raw
 }
 
+fn __metadata_secret_alias(raw, name) {
+  if raw?.metadata?.secret_ids?[name] != nil {
+    return secret_get("linear/" + name)
+  }
+  return nil
+}
+
 fn __signing_secret(raw) {
+  let metadata_alias = __metadata_secret_alias(raw, "signing_secret")
+  if metadata_alias != nil {
+    return metadata_alias
+  }
   let config = __binding_config(raw)
   return __secret_value(
     raw?.signing_secret ?? raw?.metadata?.signing_secret ?? config?.signing_secret
@@ -290,7 +301,13 @@ fn __int_header(headers, name) {
   if value == nil || trim(to_string(value)) == "" {
     return nil
   }
-  return to_int(value)
+  let parsed = try {
+    to_int(value)
+  }
+  if is_ok(parsed) {
+    return unwrap(parsed)
+  }
+  return nil
 }
 
 fn __complexity_estimate(query, variables) {
