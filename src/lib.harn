@@ -1,3 +1,12 @@
+import {
+  graphql_auth_headers,
+  graphql_extract,
+  graphql_normalize_response,
+  graphql_operation,
+  graphql_page_info,
+} from "std/graphql"
+import { merge } from "std/json"
+
 var connector_state = {ctx: nil, bindings: []}
 
 fn __default_signing_secret_id() {
@@ -354,23 +363,6 @@ fn __required_string(args, field) {
   return to_string(value)
 }
 
-fn __extract_graphql_field(envelope, field) {
-  let value = envelope?.data?[field]
-  if value == nil {
-    throw {
-      message: "linear connector response missing `" + field + "` GraphQL field",
-      code: "missing_graphql_field",
-      field: field,
-      data: envelope?.data,
-      meta: envelope?.meta,
-    }
-  }
-  if type_of(value) == "dict" {
-    return value + {meta: envelope?.meta}
-  }
-  return {value: value, meta: envelope?.meta}
-}
-
 fn __graphql(args) {
   let query = args?.query
   if query == nil || trim(query) == "" {
@@ -391,22 +383,22 @@ fn __graphql(args) {
     args?.api_base_url ?? __default_api_base_url(),
     json_stringify(request),
     {
-      headers: {
-        Authorization: authorization,
-        ["Content-Type"]: "application/json",
-        ["User-Agent"]: "harn-linear-connector",
-      },
+      headers: graphql_auth_headers({authorization: authorization}, {["User-Agent"]: "harn-linear-connector"}),
     },
   )
-  let payload = if response?.body == nil || trim(response.body) == "" {
-    {}
-  } else {
-    json_parse(response.body)
-  }
-  let errors = __graphql_errors(payload)
-  if response.status < 200 || response.status >= 300 || len(errors) > 0 {
-    let meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
-    let code = if __rate_limited(response.status, errors) {
+  let envelope = graphql_normalize_response(response, {operation_name: request.operationName})
+  let header_meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
+  let merged_meta = merge(
+    envelope.meta,
+    {
+      observed_complexity: header_meta.observed_complexity,
+      complexity_estimate: header_meta.complexity_estimate,
+      complexity_warning: header_meta.complexity_warning,
+    },
+  )
+  if !envelope.ok {
+    let errors = envelope.errors
+    let code = if __rate_limited(envelope.meta.status, errors) {
       "rate_limited"
     } else {
       if len(errors) > 0 {
@@ -416,80 +408,99 @@ fn __graphql(args) {
       }
     }
     throw {
-      message: __graphql_error_message(response.status, errors),
+      message: __graphql_error_message(envelope.meta.status, errors),
       code: code,
-      status: response.status,
+      status: envelope.meta.status,
       errors: errors,
-      data: payload?.data,
-      meta: meta,
+      data: envelope.data,
+      meta: merged_meta,
     }
   }
-  let meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
-  return payload + {meta: meta}
+  return merge(envelope, {meta: merged_meta})
+}
+
+fn __operation(name, document, options = nil) {
+  return graphql_operation(name, document, options)
+}
+
+fn __execute(operation, variables, args) {
+  let envelope = __graphql(
+    args ?? {}
+      + {
+      query: operation.document,
+      variables: variables,
+      operation_name: operation.operation_name ?? operation.name,
+    },
+  )
+  let result = if operation.root_field != nil {
+    graphql_extract(envelope, operation.root_field, operation.result_schema)
+  } else {
+    envelope.data
+  }
+  let shaped_result = if type_of(result) == "dict" {
+    merge(result, {meta: envelope.meta})
+  } else {
+    result
+  }
+  return merge(envelope, {result: shaped_result})
+}
+
+fn __list_issues_operation() {
+  return __operation("HarnLinearListIssues", __list_issues_query(), {root_field: "issues"})
+}
+
+fn __update_issue_operation() {
+  return __operation("HarnLinearUpdateIssue", __update_issue_query(), {root_field: "issueUpdate"})
+}
+
+fn __create_comment_operation() {
+  return __operation("HarnLinearCreateComment", __create_comment_query(), {root_field: "commentCreate"})
+}
+
+fn __search_operation(use_term = false) {
+  let document = if use_term {
+    __search_issues_term_query()
+  } else {
+    __search_issues_query()
+  }
+  return __operation("HarnLinearSearchIssues", document, {root_field: "searchIssues"})
 }
 
 fn __list_issues(args) {
-  return __extract_graphql_field(
-    __graphql(
-      args ?? {}
-        + {
-        query: __list_issues_query(),
-        variables: {
-          filter: args?.filter,
-          first: args?.first,
-          after: args?.after,
-          includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
-        },
-        operation_name: "HarnLinearListIssues",
-      },
-    ),
-    "issues",
-  )
+  let connection = __execute(
+    __list_issues_operation(),
+    {
+      filter: args?.filter,
+      first: args?.first,
+      after: args?.after,
+      includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
+    },
+    args,
+  ).result
+  return merge(connection, {page: graphql_page_info(connection)})
 }
 
 fn __update_issue(args) {
-  return __extract_graphql_field(
-    __graphql(
-      args ?? {}
-        + {
-        query: __update_issue_query(),
-        variables: {id: __required_string(args, "id"), input: args?.changes ?? {}},
-        operation_name: "HarnLinearUpdateIssue",
-      },
-    ),
-    "issueUpdate",
-  )
+  return __execute(
+    __update_issue_operation(),
+    {id: __required_string(args, "id"), input: args?.changes ?? {}},
+    args,
+  ).result
 }
 
 fn __create_comment(args) {
-  return __extract_graphql_field(
-    __graphql(
-      args ?? {}
-        + {
-        query: __create_comment_query(),
-        variables: {input: {issueId: __required_string(args, "issue_id"), body: __required_string(args, "body")}},
-        operation_name: "HarnLinearCreateComment",
-      },
-    ),
-    "commentCreate",
-  )
+  return __execute(
+    __create_comment_operation(),
+    {input: {issueId: __required_string(args, "issue_id"), body: __required_string(args, "body")}},
+    args,
+  ).result
 }
 
 fn __search(args) {
   let first = args?.first ?? 10
   let query = __required_string(args, "query")
   let primary = try {
-    __extract_graphql_field(
-      __graphql(
-        args ?? {}
-          + {
-          query: __search_issues_query(),
-          variables: {query: query, first: first},
-          operation_name: "HarnLinearSearchIssues",
-        },
-      ),
-      "searchIssues",
-    )
+    __execute(__search_operation(false), {query: query, first: first}, args).result
   }
   if is_ok(primary) {
     return unwrap(primary)
@@ -499,17 +510,7 @@ fn __search(args) {
     && !__has_graphql_error_code(err?.errors, "GRAPHQL_VALIDATION_FAILED") {
     throw err
   }
-  return __extract_graphql_field(
-    __graphql(
-      args ?? {}
-        + {
-        query: __search_issues_term_query(),
-        variables: {term: query, first: first},
-        operation_name: "HarnLinearSearchIssues",
-      },
-    ),
-    "searchIssues",
-  )
+  return __execute(__search_operation(true), {term: query, first: first}, args).result
 }
 
 /** Return the Harn provider id for this connector. */

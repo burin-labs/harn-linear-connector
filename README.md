@@ -15,11 +15,11 @@ Contract v1. The canonical contract docs live in the Harn repo:
 - [Connector authoring](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md)
 - [Connector architecture](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/architecture.md)
 
-Linear has no OpenAPI spec: its public API is GraphQL. For v0.1 this package
-keeps a small hand-written GraphQL helper layer in `src/lib.harn` instead of
-introducing a separate `linear-sdk-harn` package. That keeps the connector
-self-contained while still giving the production methods argument validation,
-stable query documents, mocked tests, and one shared error/rate-limit path.
+Linear has no OpenAPI spec — its public API is GraphQL. Outbound calls use
+Harn's `std/graphql` operation/envelope helpers so query documents, errors,
+rate-limit metadata, and cursor pagination are handled the same way as other
+GraphQL-first connector packages. A larger fully generated `linear-sdk-harn`
+can build on the same substrate later.
 
 ## Install
 
