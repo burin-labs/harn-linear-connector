@@ -6,7 +6,7 @@ Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
 > **Status: pre-alpha** — this repo is a first-party connector package for
-> Harn `0.7.50` or newer. CI installs the pinned CLI version from
+> Harn `0.7.51` or newer. CI installs the pinned CLI version from
 > `.harn-version`.
 
 This is an **inbound + outbound** connector implementing Harn Connector
