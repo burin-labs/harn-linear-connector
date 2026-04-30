@@ -80,7 +80,7 @@ fn __signing_secret(raw) {
   let config = __binding_config(raw)
   return __secret_value(
     raw?.signing_secret ?? raw?.metadata?.signing_secret ?? config?.signing_secret
-    ?? config?.secrets?.signing_secret,
+      ?? config?.secrets?.signing_secret,
     __default_signing_secret_id(),
   )
 }
@@ -205,14 +205,14 @@ fn __event(raw, body) {
   return {
     type: "event",
     event: {
-    kind: kind,
-    dedupe_key: __dedupe_key(raw, body),
-    occurred_at: raw?.occurred_at ?? raw?.received_at,
-    tenant_id: raw?.tenant_id,
-    headers: raw?.headers ?? {},
-    signature_status: {state: "verified"},
-    payload: body,
-  },
+      kind: kind,
+      dedupe_key: __dedupe_key(raw, body),
+      occurred_at: raw?.occurred_at ?? raw?.received_at,
+      tenant_id: raw?.tenant_id,
+      headers: raw?.headers ?? {},
+      signature_status: {state: "verified"},
+      payload: body,
+    },
   }
 }
 
@@ -251,10 +251,10 @@ fn __graphql_errors(payload) {
     return payload.errors
       .map(
       { error -> {
-      message: error?.message ?? "Linear GraphQL error",
-      path: error?.path,
-      extensions: error?.extensions ?? {},
-    } },
+        message: error?.message ?? "Linear GraphQL error",
+        path: error?.path,
+        extensions: error?.extensions ?? {},
+      } },
     )
   }
   return []
@@ -319,13 +319,13 @@ fn __graphql_meta(headers, query, variables = nil) {
     observed_complexity: observed ?? 0,
     complexity_warning: complexity >= __complexity_warning_threshold(),
     rate_limit: {
-    requests_limit: __int_header(headers, "x-ratelimit-requests-limit"),
-    requests_remaining: __int_header(headers, "x-ratelimit-requests-remaining"),
-    requests_reset: __int_header(headers, "x-ratelimit-requests-reset"),
-    complexity_limit: __int_header(headers, "x-ratelimit-complexity-limit"),
-    complexity_remaining: __int_header(headers, "x-ratelimit-complexity-remaining"),
-    complexity_reset: __int_header(headers, "x-ratelimit-complexity-reset"),
-  },
+      requests_limit: __int_header(headers, "x-ratelimit-requests-limit"),
+      requests_remaining: __int_header(headers, "x-ratelimit-requests-remaining"),
+      requests_reset: __int_header(headers, "x-ratelimit-requests-reset"),
+      complexity_limit: __int_header(headers, "x-ratelimit-complexity-limit"),
+      complexity_remaining: __int_header(headers, "x-ratelimit-complexity-remaining"),
+      complexity_reset: __int_header(headers, "x-ratelimit-complexity-reset"),
+    },
   }
 }
 
@@ -374,12 +374,12 @@ fn __graphql(args) {
     args?.api_base_url ?? __default_api_base_url(),
     json_stringify(request),
     {
-    headers: {
-    Authorization: authorization,
-    ["Content-Type"]: "application/json",
-    ["User-Agent"]: "harn-linear-connector",
-  },
-  },
+      headers: {
+        Authorization: authorization,
+        ["Content-Type"]: "application/json",
+        ["User-Agent"]: "harn-linear-connector",
+      },
+    },
   )
   let payload = if response?.body == nil || trim(response.body) == "" {
     {}
@@ -414,18 +414,18 @@ fn __graphql(args) {
 fn __list_issues(args) {
   return __extract_graphql_field(
     __graphql(
-    args ?? {}
-    + {
-    query: __list_issues_query(),
-    variables: {
-    filter: args?.filter,
-    first: args?.first,
-    after: args?.after,
-    includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
-  },
-    operation_name: "HarnLinearListIssues",
-  },
-  ),
+      args ?? {}
+        + {
+        query: __list_issues_query(),
+        variables: {
+          filter: args?.filter,
+          first: args?.first,
+          after: args?.after,
+          includeArchived: args?.include_archived ?? args?.includeArchived ?? false,
+        },
+        operation_name: "HarnLinearListIssues",
+      },
+    ),
     "issues",
   )
 }
@@ -433,13 +433,13 @@ fn __list_issues(args) {
 fn __update_issue(args) {
   return __extract_graphql_field(
     __graphql(
-    args ?? {}
-    + {
-    query: __update_issue_query(),
-    variables: {id: __required_string(args, "id"), input: args?.changes ?? {}},
-    operation_name: "HarnLinearUpdateIssue",
-  },
-  ),
+      args ?? {}
+        + {
+        query: __update_issue_query(),
+        variables: {id: __required_string(args, "id"), input: args?.changes ?? {}},
+        operation_name: "HarnLinearUpdateIssue",
+      },
+    ),
     "issueUpdate",
   )
 }
@@ -447,13 +447,13 @@ fn __update_issue(args) {
 fn __create_comment(args) {
   return __extract_graphql_field(
     __graphql(
-    args ?? {}
-    + {
-    query: __create_comment_query(),
-    variables: {input: {issueId: __required_string(args, "issue_id"), body: __required_string(args, "body")}},
-    operation_name: "HarnLinearCreateComment",
-  },
-  ),
+      args ?? {}
+        + {
+        query: __create_comment_query(),
+        variables: {input: {issueId: __required_string(args, "issue_id"), body: __required_string(args, "body")}},
+        operation_name: "HarnLinearCreateComment",
+      },
+    ),
     "commentCreate",
   )
 }
@@ -463,16 +463,16 @@ fn __search(args) {
   let query = __required_string(args, "query")
   let primary = try {
     __extract_graphql_field(
-    __graphql(
-    args ?? {}
-    + {
-    query: __search_issues_query(),
-    variables: {query: query, first: first},
-    operation_name: "HarnLinearSearchIssues",
-  },
-  ),
-    "searchIssues",
-  )
+      __graphql(
+        args ?? {}
+          + {
+          query: __search_issues_query(),
+          variables: {query: query, first: first},
+          operation_name: "HarnLinearSearchIssues",
+        },
+      ),
+      "searchIssues",
+    )
   }
   if is_ok(primary) {
     return unwrap(primary)
@@ -484,13 +484,13 @@ fn __search(args) {
   }
   return __extract_graphql_field(
     __graphql(
-    args ?? {}
-    + {
-    query: __search_issues_term_query(),
-    variables: {term: query, first: first},
-    operation_name: "HarnLinearSearchIssues",
-  },
-  ),
+      args ?? {}
+        + {
+        query: __search_issues_term_query(),
+        variables: {term: query, first: first},
+        operation_name: "HarnLinearSearchIssues",
+      },
+    ),
     "searchIssues",
   )
 }
@@ -510,20 +510,20 @@ pub fn payload_schema() {
   return {
     harn_schema_name: "LinearEventPayload",
     json_schema: {
-    type: "object",
-    required: ["type", "action", "data"],
-    additionalProperties: true,
-    properties: {
-    type: {type: "string"},
-    action: {type: "string", enum: ["create", "update", "remove"]},
-    organizationId: {type: "string"},
-    webhookTimestamp: {type: ["integer", "number", "string"]},
-    webhookId: {type: "string"},
-    actor: {type: "object", additionalProperties: true},
-    data: {type: "object", additionalProperties: true},
-    updatedFrom: {type: "object", additionalProperties: true},
-  },
-  },
+      type: "object",
+      required: ["type", "action", "data"],
+      additionalProperties: true,
+      properties: {
+        type: {type: "string"},
+        action: {type: "string", enum: ["create", "update", "remove"]},
+        organizationId: {type: "string"},
+        webhookTimestamp: {type: ["integer", "number", "string"]},
+        webhookId: {type: "string"},
+        actor: {type: "object", additionalProperties: true},
+        data: {type: "object", additionalProperties: true},
+        updatedFrom: {type: "object", additionalProperties: true},
+      },
+    },
   }
 }
 

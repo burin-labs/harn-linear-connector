@@ -6,60 +6,60 @@ pipeline test(task) {
     "POST",
     "https://linear.test/graphql",
     {
-    responses: [
-    {
-    status: 200,
-    headers: {
-    ["x-complexity"]: "12",
-    ["x-ratelimit-requests-limit"]: "1500",
-    ["x-ratelimit-requests-remaining"]: "1499",
-  },
-    body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}",
-  },
-    {
-    status: 200,
-    body: "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
-  },
-    {
-    status: 200,
-    headers: {["x-complexity"]: "48"},
-    body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
-  },
-    {
-    status: 200,
-    body: "{\"data\":{\"issueUpdate\":{\"success\":true,\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Updated\"}}}}",
-  },
-    {
-    status: 200,
-    body: "{\"data\":{\"commentCreate\":{\"success\":true,\"comment\":{\"id\":\"com_1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\"}}}}}",
-  },
-    {
-    status: 200,
-    body: "{\"errors\":[{\"message\":\"Unknown argument \\\"query\\\" on field \\\"searchIssues\\\"\",\"extensions\":{\"code\":\"GRAPHQL_VALIDATION_FAILED\"}}]}",
-  },
-    {
-    status: 200,
-    body: "{\"data\":{\"searchIssues\":{\"nodes\":[{\"id\":\"iss_2\",\"identifier\":\"ENG-2\",\"title\":\"Search hit\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
-  },
-    {
-    status: 200,
-    body: "{\"data\":{\"viewer\":{\"id\":\"usr_partial\"}},\"errors\":[{\"message\":\"field failed\",\"path\":[\"viewer\",\"name\"],\"extensions\":{\"code\":\"INTERNAL_ERROR\"}}]}",
-  },
-    {
-    status: 400,
-    headers: {["x-ratelimit-requests-reset"]: "1776859300"},
-    body: "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
-  },
-  ],
-  },
+      responses: [
+        {
+          status: 200,
+          headers: {
+            ["x-complexity"]: "12",
+            ["x-ratelimit-requests-limit"]: "1500",
+            ["x-ratelimit-requests-remaining"]: "1499",
+          },
+          body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}",
+        },
+        {
+          status: 200,
+          body: "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
+        },
+        {
+          status: 200,
+          headers: {["x-complexity"]: "48"},
+          body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
+        },
+        {
+          status: 200,
+          body: "{\"data\":{\"issueUpdate\":{\"success\":true,\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Updated\"}}}}",
+        },
+        {
+          status: 200,
+          body: "{\"data\":{\"commentCreate\":{\"success\":true,\"comment\":{\"id\":\"com_1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\"}}}}}",
+        },
+        {
+          status: 200,
+          body: "{\"errors\":[{\"message\":\"Unknown argument \\\"query\\\" on field \\\"searchIssues\\\"\",\"extensions\":{\"code\":\"GRAPHQL_VALIDATION_FAILED\"}}]}",
+        },
+        {
+          status: 200,
+          body: "{\"data\":{\"searchIssues\":{\"nodes\":[{\"id\":\"iss_2\",\"identifier\":\"ENG-2\",\"title\":\"Search hit\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
+        },
+        {
+          status: 200,
+          body: "{\"data\":{\"viewer\":{\"id\":\"usr_partial\"}},\"errors\":[{\"message\":\"field failed\",\"path\":[\"viewer\",\"name\"],\"extensions\":{\"code\":\"INTERNAL_ERROR\"}}]}",
+        },
+        {
+          status: 400,
+          headers: {["x-ratelimit-requests-reset"]: "1776859300"},
+          body: "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
+        },
+      ],
+    },
   )
   let ok = call(
     "graphql",
     {
-    api_base_url: "https://linear.test/graphql",
-    api_key: "lin_api_key",
-    query: "query Viewer { viewer { id } }",
-  },
+      api_base_url: "https://linear.test/graphql",
+      api_key: "lin_api_key",
+      query: "query Viewer { viewer { id } }",
+    },
   )
   assert_eq(ok.data.viewer.id, "usr_1")
   assert_eq(ok.meta.observed_complexity, 12)
@@ -70,13 +70,13 @@ pipeline test(task) {
   assert_eq(sent["query"], "query Viewer { viewer { id } }")
   let failed = try {
     call(
-    "graphql",
-    {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    query: "query Viewer { viewer { id } }",
-  },
-  )
+      "graphql",
+      {
+        api_base_url: "https://linear.test/graphql",
+        access_token: "oauth-token",
+        query: "query Viewer { viewer { id } }",
+      },
+    )
   }
   assert(is_err(failed))
   let error = unwrap_err(failed)
@@ -86,12 +86,12 @@ pipeline test(task) {
   let issues = call(
     "list_issues",
     {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    filter: {priority: {lte: 2}},
-    first: 10,
-    after: "cursor-0",
-  },
+      api_base_url: "https://linear.test/graphql",
+      access_token: "oauth-token",
+      filter: {priority: {lte: 2}},
+      first: 10,
+      after: "cursor-0",
+    },
   )
   assert_eq(issues.nodes[0].identifier, "ENG-1")
   assert_eq(issues.pageInfo.hasNextPage, true)
@@ -99,43 +99,43 @@ pipeline test(task) {
   let updated = call(
     "update_issue",
     {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    id: "iss_1",
-    changes: {title: "Updated"},
-  },
+      api_base_url: "https://linear.test/graphql",
+      access_token: "oauth-token",
+      id: "iss_1",
+      changes: {title: "Updated"},
+    },
   )
   assert_eq(updated.success, true)
   assert_eq(updated.issue.title, "Updated")
   let comment = call(
     "create_comment",
     {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    issue_id: "iss_1",
-    body: "Looks good",
-  },
+      api_base_url: "https://linear.test/graphql",
+      access_token: "oauth-token",
+      issue_id: "iss_1",
+      body: "Looks good",
+    },
   )
   assert_eq(comment.comment.id, "com_1")
   let search = call(
     "search",
     {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    query: "connector",
-    first: 5,
-  },
+      api_base_url: "https://linear.test/graphql",
+      access_token: "oauth-token",
+      query: "connector",
+      first: 5,
+    },
   )
   assert_eq(search.nodes[0].identifier, "ENG-2")
   let partial = try {
     call(
-    "graphql",
-    {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    query: "query Viewer { viewer { id name } }",
-  },
-  )
+      "graphql",
+      {
+        api_base_url: "https://linear.test/graphql",
+        access_token: "oauth-token",
+        query: "query Viewer { viewer { id name } }",
+      },
+    )
   }
   assert(is_err(partial))
   let partial_error = unwrap_err(partial)
@@ -143,13 +143,13 @@ pipeline test(task) {
   assert_eq(partial_error.data.viewer.id, "usr_partial")
   let limited = try {
     call(
-    "graphql",
-    {
-    api_base_url: "https://linear.test/graphql",
-    access_token: "oauth-token",
-    query: "query Viewer { viewer { id } }",
-  },
-  )
+      "graphql",
+      {
+        api_base_url: "https://linear.test/graphql",
+        access_token: "oauth-token",
+        query: "query Viewer { viewer { id } }",
+      },
+    )
   }
   assert(is_err(limited))
   let limited_error = unwrap_err(limited)
