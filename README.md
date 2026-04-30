@@ -6,7 +6,7 @@ Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
 > **Status: pre-alpha** — this repo is a first-party connector package for
-> Harn `0.7.42` or newer. CI installs the pinned CLI version from
+> Harn `0.7.50` or newer. CI installs the pinned CLI version from
 > `.harn-version`.
 
 This is an **inbound + outbound** connector implementing Harn Connector
@@ -155,18 +155,23 @@ Run the local contract and fixture suite with:
 
 ```sh
 harn --version
-harn check src/lib.harn
-harn lint src/lib.harn
-harn fmt --check src/lib.harn
-harn connector check .
-for test in tests/*.harn; do harn run "$test"; done
+harn connector test "$(pwd)" --provider linear
 ```
 
-CI installs the pinned Harn CLI from `.harn-version` via
-`cargo install harn-cli --version "$(cat .harn-version)" --locked`, then runs
-the same checks plus a clean package-install smoke. Local development should use
-the installed CLI and this package's `harn.toml`; it should not depend on a
-sibling `~/projects/harn` checkout.
+That full package gate runs check, lint, format, package install/import smoke,
+doc examples, the connector contract harness, and all `tests/*.harn` fixture
+programs. Pass an absolute package path, as shown above, so the clean consumer
+package smoke can resolve the path dependency from its temporary directory.
+
+CI installs the pinned Harn CLI from `.harn-version` and runs the same full
+package gate. Local development should use the installed CLI and this package's
+`harn.toml`; it should not depend on a sibling `~/projects/harn` checkout.
+
+The connector contract fixtures include a harn-cloud managed-ingress-shaped
+delivery that carries `metadata.secret_ids.signing_secret =
+"linear.webhook.secret"`. This exercises the same secret alias convention used
+by harn-cloud's `HARN_CLOUD_CONNECTORS_CONFIG` path without live provider
+credentials.
 
 ## License
 

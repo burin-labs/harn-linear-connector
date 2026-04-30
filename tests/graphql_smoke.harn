@@ -175,19 +175,24 @@ pipeline test(task) {
   let all_calls = http_mock_calls()
   let oauth_auth = recorded_header(all_calls[1].headers, "authorization")
   assert(oauth_auth == "Bearer oauth-token" || oauth_auth == "[redacted]")
-  assert(contains(json_parse(all_calls[2].body).query, "issues("))
-  assert_eq(json_parse(all_calls[2].body).operationName, "HarnLinearListIssues")
-  assert(contains(json_parse(all_calls[3].body).query, "issueUpdate"))
-  assert(contains(json_parse(all_calls[4].body).query, "commentCreate"))
-  assert(contains(json_parse(all_calls[5].body).query, "searchIssues"))
-  assert_eq(json_parse(all_calls[6].body).variables.term, "connector")
+  let list_request = json_parse(all_calls[2].body)
+  let update_request = json_parse(all_calls[3].body)
+  let comment_request = json_parse(all_calls[4].body)
+  let search_request = json_parse(all_calls[5].body)
+  let search_fallback_request = json_parse(all_calls[6].body)
+  assert(contains(list_request.query, "issues("))
+  assert_eq(list_request.operationName, "HarnLinearListIssues")
+  assert(contains(update_request.query, "issueUpdate"))
+  assert(contains(comment_request.query, "commentCreate"))
+  assert(contains(search_request.query, "searchIssues"))
+  assert_eq(search_fallback_request.variables.term, "connector")
   let malformed_header = call(
     "graphql",
     {
-    api_base_url: "https://linear.test/graphql",
-    api_key: "lin_api_key",
-    query: "query Viewer { viewer { id } }",
-  },
+      api_base_url: "https://linear.test/graphql",
+      api_key: "lin_api_key",
+      query: "query Viewer { viewer { id } }",
+    },
   )
   assert_eq(malformed_header.data.viewer.id, "usr_3")
   assert_eq(malformed_header.meta.observed_complexity, 0)
