@@ -65,7 +65,7 @@ pipeline test(task) {
   assert_eq(ok.meta.observed_complexity, 12)
   assert_eq(ok.meta.rate_limit.requests_limit, 1500)
   let calls = http_mock_calls()
-  assert_eq(calls[0].headers.Authorization, "lin_api_key")
+  assert_eq(calls[0].headers.authorization, "[redacted]")
   let sent = json_parse(calls[0].body)
   assert_eq(sent["query"], "query Viewer { viewer { id } }")
   let failed = try {
@@ -157,7 +157,7 @@ pipeline test(task) {
   assert_eq(limited_error.status, 400)
   assert_eq(limited_error.meta.rate_limit.requests_reset, 1776859300)
   let all_calls = http_mock_calls()
-  assert_eq(all_calls[1].headers.Authorization, "Bearer oauth-token")
+  assert_eq(all_calls[1].headers.authorization, "[redacted]")
   assert(contains(json_parse(all_calls[2].body).query, "issues("))
   assert_eq(json_parse(all_calls[2].body).operationName, "HarnLinearListIssues")
   assert(contains(json_parse(all_calls[3].body).query, "issueUpdate"))
