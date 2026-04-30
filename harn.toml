@@ -102,6 +102,20 @@ expect_event_count = 1
 
 [[connector_contract.fixtures]]
 provider = "linear"
+name = "harn-cloud managed ingress issue update"
+kind = "webhook"
+headers = { "content-type" = "application/json", "linear-signature" = "93298f60718be962cefea14569c23019c3b76e541caf93979f6d5b9d0c67a83e", "linear-delivery" = "delivery-cloud-issue" }
+metadata = { tenant_slug = "acme", trigger_id = "linear", binding_id = "linear", provider = "linear", package = { name = "harn-linear-connector", version = "git:main" }, signature_status = "verified", secret_ids = { signing_secret = "linear.webhook.secret" }, sandbox = { tenant_id = "tenant-acme", egress_allowlist = ["api.linear.app"] } }
+body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859200000,\"webhookId\":\"wh_contract_issue\",\"actor\":{\"id\":\"usr_1\",\"name\":\"Ada\"},\"data\":{\"id\":\"ISS-1\",\"title\":\"Contract fixture\"},\"updatedFrom\":{\"title\":\"Old title\"}}"
+expect_type = "event"
+expect_kind = "linear.issue.update"
+expect_dedupe_key = "linear:delivery-cloud-issue"
+expect_signature_state = "verified"
+expect_payload_contains = { raw = { type = "Issue", action = "update", data = { id = "ISS-1" } } }
+expect_event_count = 1
+
+[[connector_contract.fixtures]]
+provider = "linear"
 name = "unsupported action"
 kind = "webhook"
 headers = { "content-type" = "application/json", "linear-signature" = "106ec93bca57d43fc381bacf93e4cd0a9e2aed183dab457d69d0d5669f60238f", "linear-delivery" = "delivery-contract-unsupported" }

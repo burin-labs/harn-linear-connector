@@ -38,7 +38,8 @@ pipeline test(task) {
   let comment = normalize_inbound(raw(comment_body, "test-secret"))
   assert_eq(comment.event.kind, "linear.comment.create")
   assert_eq(comment.event.payload.data.id, "COM-1")
-  let variants = json_parse(read_file("tests/fixtures/normalized/linear_variants.json")).variants
+  let variant_snapshot = json_parse(read_file("tests/fixtures/normalized/linear_variants.json"))
+  let variants = variant_snapshot.variants
   for variant in variants {
     let body = trim(read_file("tests/fixtures/webhooks/" + variant.fixture + ".json"))
     let normalized = normalize_inbound(raw(body, "test-secret"))
