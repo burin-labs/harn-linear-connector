@@ -1,41 +1,19 @@
-# CLAUDE.md — harn-linear-connector
+# CLAUDE.md - harn-linear-connector
 
-## Quick repo conventions
+Pure-Harn connector package for Linear webhooks and GraphQL outbound calls.
 
-- File extension: `.harn`. Use `snake_case` for filenames.
-- Repo directories use `kebab-case`.
-- Entry point: `src/lib.harn`.
-- Tests live under `tests/`. Recorded webhook fixtures live under
-  `tests/fixtures/webhooks/`.
+Shared Harn connector authoring rules live in the canonical guide:
 
-## How to test
+- https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md
 
-Install the pinned Harn CLI from crates.io and run the local gate:
+Keep this file limited to provider-specific notes and local hazards. Add shared connector guidance
+to the Harn guide first.
 
-```sh
-cargo install harn-cli --version "$(cat .harn-version)" --locked
-harn check src
-harn lint src
-harn fmt --check src tests
-for test in tests/*.harn; do
-  harn run "$test" || exit 1
-done
-```
+## Provider Notes
 
-## Reference Rust impl
-
-The existing 1165-LOC Rust connector at
-`/Users/ksinder/projects/harn/crates/harn-vm/src/connectors/linear/mod.rs`
-is the **behavior spec**. Linear's exact header names and signature
-encoding live there — read first before re-deriving from Linear's docs.
-
-## Upstream conventions
-
-For general Harn coding conventions and project layout, defer to
-[`/Users/ksinder/projects/harn/CLAUDE.md`](/Users/ksinder/projects/harn/CLAUDE.md).
-
-## Don't
-
-- Don't add a typed Linear SDK to this repo. If you want one, propose
-  `linear-sdk-harn` (GraphQL codegen) as a separate repo.
-- Don't hand-edit `LICENSE-*` or `.gitignore`.
+- Webhook verification uses `linear-signature` with the Linear webhook secret and enforces the
+  provider replay window.
+- Delivery ids come from `linear-delivery`; use them as stable dedupe material when available.
+- Linear has no OpenAPI surface. Keep outbound behavior on Harn `std/graphql` helpers unless a
+  separate generated GraphQL SDK package is created.
+- OAuth access tokens use `Authorization: Bearer`; personal API keys use `Authorization: <api_key>`.
