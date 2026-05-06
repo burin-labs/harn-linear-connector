@@ -11,9 +11,9 @@ fn raw(body, secret, received_at = "2026-04-22T12:00:00Z", configured_secret = n
   return {
     kind: "webhook",
     headers: {
-      ["content-type"]: "application/json",
-      ["linear-signature"]: hmac_sha256(secret, body),
-      ["linear-delivery"]: "delivery-test",
+      "content-type": "application/json",
+      "linear-signature": hmac_sha256(secret, body),
+      "linear-delivery": "delivery-test",
     },
     body_text: body,
     received_at: received_at,

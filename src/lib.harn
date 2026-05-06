@@ -130,7 +130,7 @@ fn __reject(status, code, message) {
   return {
     type: "reject",
     status: status,
-    headers: {["content-type"]: "application/json"},
+    headers: {"content-type": "application/json"},
     body: json_stringify({error: code, message: message}),
   }
 }
@@ -383,7 +383,7 @@ fn __graphql(args) {
     args?.api_base_url ?? __default_api_base_url(),
     json_stringify(request),
     {
-      headers: graphql_auth_headers({authorization: authorization}, {["User-Agent"]: "harn-linear-connector"}),
+      headers: graphql_auth_headers({authorization: authorization}, {"User-Agent": "harn-linear-connector"}),
     },
   )
   let envelope = graphql_normalize_response(response, {operation_name: request.operationName})

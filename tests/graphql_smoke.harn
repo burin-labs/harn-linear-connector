@@ -20,9 +20,9 @@ pipeline test(task) {
         {
           status: 200,
           headers: {
-            ["x-complexity"]: "12",
-            ["x-ratelimit-requests-limit"]: "1500",
-            ["x-ratelimit-requests-remaining"]: "1499",
+            "x-complexity": "12",
+            "x-ratelimit-requests-limit": "1500",
+            "x-ratelimit-requests-remaining": "1499",
           },
           body: "{\"data\":{\"viewer\":{\"id\":\"usr_1\"}}}",
         },
@@ -32,7 +32,7 @@ pipeline test(task) {
         },
         {
           status: 200,
-          headers: {["x-complexity"]: "48", ["x-ratelimit-requests-remaining"]: "49"},
+          headers: {"x-complexity": "48", "x-ratelimit-requests-remaining": "49"},
           body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
         },
         {
@@ -57,12 +57,12 @@ pipeline test(task) {
         },
         {
           status: 400,
-          headers: {["x-ratelimit-requests-reset"]: "1776859300"},
+          headers: {"x-ratelimit-requests-reset": "1776859300"},
           body: "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
         },
         {
           status: 200,
-          headers: {["x-complexity"]: "not-a-number"},
+          headers: {"x-complexity": "not-a-number"},
           body: "{\"data\":{\"viewer\":{\"id\":\"usr_3\"}}}",
         },
       ],
