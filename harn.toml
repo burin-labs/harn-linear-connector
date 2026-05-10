@@ -12,6 +12,32 @@ default = "src/lib.harn"
 id = "linear"
 connector = { harn = "src/lib.harn" }
 
+[providers.setup]
+auth_type = "oauth2"
+flow = "oauth2"
+required_scopes = ["read"]
+required_secrets = ["linear/api-token", "linear/webhook-secret"]
+setup_command = ["harn", "connect", "linear"]
+validation_command = ["harn", "connect", "status", "--connector", "linear", "--json"]
+
+[[providers.setup.health_checks]]
+id = "api-token"
+kind = "secret"
+secret = "linear/api-token"
+
+[[providers.setup.health_checks]]
+id = "webhook-secret"
+kind = "secret"
+secret = "linear/webhook-secret"
+
+[providers.setup.recovery]
+missing_auth = "Store linear/api-token and linear/webhook-secret before enabling Linear bindings."
+expired_credentials = "Refresh the OAuth token or rotate the API key, then rerun Linear validation."
+revoked_credentials = "Replace linear/api-token with an active Linear OAuth token or API key."
+missing_scopes = "Grant read or write scopes required by the configured Linear GraphQL operations."
+inaccessible_resource = "Confirm the token can access the target Linear workspace and resources."
+transient_provider_outage = "Retry after Linear API and webhook delivery endpoints are healthy."
+
 [connector_contract]
 version = 1
 
