@@ -400,12 +400,10 @@ fn __graphql(args) {
     let errors = envelope.errors
     let code = if __rate_limited(envelope.meta.status, errors) {
       "rate_limited"
+    } else if len(errors) > 0 {
+      "graphql_error"
     } else {
-      if len(errors) > 0 {
-        "graphql_error"
-      } else {
-        "http_error"
-      }
+      "http_error"
     }
     throw {
       message: __graphql_error_message(envelope.meta.status, errors),
