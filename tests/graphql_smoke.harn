@@ -65,6 +65,8 @@ pipeline test(task) {
           headers: {"x-complexity": "not-a-number"},
           body: "{\"data\":{\"viewer\":{\"id\":\"usr_3\"}}}",
         },
+        {status: 200, body: "{\"data\":{\"viewer\":{\"id\":\"usr_api_token\"}}}"},
+        {status: 200, body: "{\"data\":{\"viewer\":{\"id\":\"usr_slash_token\"}}}"},
       ],
     },
   )
@@ -198,4 +200,28 @@ pipeline test(task) {
   )
   assert_eq(malformed_header.data.viewer.id, "usr_3")
   assert_eq(malformed_header.meta.observed_complexity, 0)
+  let api_token = call(
+    "graphql",
+    {
+      api_base_url: "https://linear.test/graphql",
+      api_token: "lin_api_token",
+      query: "query Viewer { viewer { id } }",
+    },
+  )
+  assert_eq(api_token.data.viewer.id, "usr_api_token")
+  let api_token_calls = http_mock_calls()
+  let api_token_auth = recorded_header(api_token_calls[len(api_token_calls) - 1].headers, "authorization")
+  assert(api_token_auth == "lin_api_token" || api_token_auth == "[redacted]")
+  let slash_token = call(
+    "graphql",
+    {
+      api_base_url: "https://linear.test/graphql",
+      access_token: "oauth/with/slash",
+      query: "query Viewer { viewer { id } }",
+    },
+  )
+  assert_eq(slash_token.data.viewer.id, "usr_slash_token")
+  let slash_token_calls = http_mock_calls()
+  let slash_token_auth = recorded_header(slash_token_calls[len(slash_token_calls) - 1].headers, "authorization")
+  assert(slash_token_auth == "Bearer oauth/with/slash" || slash_token_auth == "[redacted]")
 }
