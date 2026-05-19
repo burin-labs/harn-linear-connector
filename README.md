@@ -6,7 +6,7 @@ Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
 > **Status: pre-alpha** — this repo is a first-party connector package for
-> Harn `0.7.51` or newer. CI installs the pinned CLI version from
+> Harn `0.8.26` or newer. CI installs the pinned CLI version from
 > `.harn-version`.
 
 This is an **inbound + outbound** connector implementing Harn Connector
@@ -69,10 +69,12 @@ Inbound webhooks require the Linear webhook signing secret. The connector
 checks `raw.signing_secret`, `raw.metadata.signing_secret`,
 `binding.config.signing_secret`, `binding.config.secrets.signing_secret`, or
 managed-ingress secret aliases in `raw.metadata.secret_ids`; otherwise it reads
-`linear/signing-secret` through `secret_get`.
+`linear/webhook-secret` through `secret_get`.
 
 Outbound calls require one of:
 
+- `api_token` or `api_token_secret` for the package setup secret. Requests use
+  `Authorization: <token>`.
 - `access_token` or `access_token_secret` for OAuth tokens. Requests use
   `Authorization: Bearer <token>`.
 - `api_key` or `api_key_secret` for personal API keys. Requests use
@@ -168,10 +170,9 @@ package gate. Local development should use the installed CLI and this package's
 `harn.toml`; it should not depend on a sibling `~/projects/harn` checkout.
 
 The connector contract fixtures include a harn-cloud managed-ingress-shaped
-delivery that carries `metadata.secret_ids.signing_secret =
-"linear.webhook.secret"`. This exercises the same secret alias convention used
-by harn-cloud's `HARN_CLOUD_CONNECTORS_CONFIG` path without live provider
-credentials.
+delivery with `metadata.secret_ids.signing_secret = "linear.webhook.secret"`.
+Harn Cloud maps that alias when the connector calls `secret_get("linear/signing_secret")`,
+so tests cover managed ingress without live provider credentials.
 
 ## License
 

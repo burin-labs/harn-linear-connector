@@ -10,7 +10,7 @@ import { merge } from "std/json"
 var connector_state = {ctx: nil, bindings: []}
 
 fn __default_signing_secret_id() {
-  return "linear/signing-secret"
+  return "linear/webhook-secret"
 }
 
 fn __default_api_base_url() {
@@ -74,20 +74,30 @@ fn __binding_config(raw) {
   return raw?.config ?? raw?.metadata?.config ?? __binding_for_raw(raw)?.config ?? {}
 }
 
-fn __secret_value(value, fallback_id) {
+fn __secret_ref(value, fallback_id) {
   let raw = trim(to_string(value ?? ""))
   if raw == "" {
     return secret_get(fallback_id)
   }
-  if contains(raw, "/") {
-    return secret_get(raw)
+  return secret_get(raw)
+}
+
+fn __auth_token(literal, secret_ref, fallback_id) {
+  let raw = trim(to_string(literal ?? ""))
+  if raw != "" {
+    return raw
   }
-  return raw
+  return __secret_ref(secret_ref, fallback_id)
 }
 
 fn __metadata_secret_alias(raw, name) {
   if raw?.metadata?.secret_ids?[name] != nil {
-    return secret_get("linear/" + name)
+    let value = try {
+      secret_get("linear/" + name)
+    }
+    if is_ok(value) {
+      return unwrap(value)
+    }
   }
   return nil
 }
@@ -98,11 +108,11 @@ fn __signing_secret(raw) {
     return metadata_alias
   }
   let config = __binding_config(raw)
-  return __secret_value(
-    raw?.signing_secret ?? raw?.metadata?.signing_secret ?? config?.signing_secret
-      ?? config?.secrets?.signing_secret,
-    __default_signing_secret_id(),
-  )
+  let literal = raw?.signing_secret ?? raw?.metadata?.signing_secret ?? config?.signing_secret
+  if literal != nil && trim(to_string(literal)) != "" {
+    return to_string(literal)
+  }
+  return __secret_ref(config?.secrets?.signing_secret, __default_signing_secret_id())
 }
 
 fn __received_at_seconds(raw) {
@@ -238,30 +248,39 @@ fn __event(raw, body) {
 
 fn __auth_config(args) {
   let config = args ?? {}
+  if config?.api_token != nil || config?.api_token_secret != nil {
+    return {token: __auth_token(config?.api_token, config?.api_token_secret, "linear/api-token"), oauth: false}
+  }
   if config?.access_token != nil || config?.access_token_secret != nil {
     return {
-      token: __secret_value(config?.access_token ?? config?.access_token_secret, "linear/access-token"),
+      token: __auth_token(config?.access_token, config?.access_token_secret, "linear/access-token"),
       oauth: true,
     }
   }
   if config?.api_key != nil || config?.api_key_secret != nil {
-    return {token: __secret_value(config?.api_key ?? config?.api_key_secret, "linear/api-key"), oauth: false}
+    return {token: __auth_token(config?.api_key, config?.api_key_secret, "linear/api-key"), oauth: false}
   }
   for binding in connector_state.bindings {
     let binding_config = binding?.config ?? {}
     let secrets = binding_config?.secrets ?? {}
+    if secrets?.api_token != nil || binding_config?.api_token != nil {
+      return {
+        token: __auth_token(binding_config?.api_token, secrets?.api_token, "linear/api-token"),
+        oauth: false,
+      }
+    }
     if secrets?.access_token != nil || binding_config?.access_token != nil {
       return {
-        token: __secret_value(secrets?.access_token ?? binding_config?.access_token, "linear/access-token"),
+        token: __auth_token(binding_config?.access_token, secrets?.access_token, "linear/access-token"),
         oauth: true,
       }
     }
     if secrets?.api_key != nil || binding_config?.api_key != nil {
-      return {token: __secret_value(secrets?.api_key ?? binding_config?.api_key, "linear/api-key"), oauth: false}
+      return {token: __auth_token(binding_config?.api_key, secrets?.api_key, "linear/api-key"), oauth: false}
     }
   }
   throw {
-    message: "linear connector requires access_token, access_token_secret, api_key, or api_key_secret",
+    message: "linear connector requires api_token, api_token_secret, access_token, access_token_secret, api_key, or api_key_secret",
     code: "missing_auth",
   }
 }

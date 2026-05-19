@@ -21,6 +21,25 @@ fn raw(body, secret, received_at = "2026-04-22T12:00:00Z", configured_secret = n
   }
 }
 
+fn cloud_raw(body, secret, received_at = "2026-04-22T12:00:00Z") {
+  return {
+    kind: "webhook",
+    headers: {
+      "content-type": "application/json",
+      "linear-signature": hmac_sha256(secret, body),
+      "linear-delivery": "delivery-cloud",
+    },
+    body_text: body,
+    received_at: received_at,
+    tenant_id: "tenant-acme",
+    metadata: {
+      binding_id: "linear.test",
+      config: {signing_secret: secret},
+      secret_ids: {signing_secret: "linear.webhook.secret"},
+    },
+  }
+}
+
 pipeline test(task) {
   activate([{id: "linear.test", kind: "webhook", config: {signing_secret: "test-secret"}}])
   assert_eq(provider_id(), "linear")
@@ -34,6 +53,13 @@ pipeline test(task) {
   assert_eq(issue.event.dedupe_key, snapshot.event.dedupe_key)
   assert_eq(issue.event.signature_status.state, snapshot.event.signature_status.state)
   assert_eq(issue.event.payload.data.id, snapshot.event.payload_data_id)
+  let slash_secret = normalize_inbound(raw(issue_body, "test/secret"))
+  assert_eq(slash_secret.type, "event")
+  let cloud = normalize_inbound(cloud_raw(issue_body, "test-secret"))
+  assert_eq(cloud.type, "event")
+  assert_eq(cloud.event.kind, "linear.issue.update")
+  assert_eq(cloud.event.dedupe_key, "linear:delivery-cloud")
+  assert_eq(cloud.event.tenant_id, "tenant-acme")
   let comment_body = trim(read_file("tests/fixtures/webhooks/comment_create.json"))
   let comment = normalize_inbound(raw(comment_body, "test-secret"))
   assert_eq(comment.event.kind, "linear.comment.create")
