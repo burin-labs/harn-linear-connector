@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Optional Harn tag to bump to, for example v0.7.33. Defaults to the latest published release."
+        description: "Optional Harn release tag (vX.Y.Z). Defaults to the latest published release."
         required: false
         type: string
   schedule:
@@ -162,10 +162,10 @@ jobs:
           ## Summary
           - bump the pinned \`harn-cli\` version in \`.harn-version\` to \`${VERSION_NO_V}\`
           - refresh formatter output with \`${VERSION}\`
-          - let the normal CI workflow re-run the Harn checks against the published release
+          - let the normal CI workflow rerun the Harn checks against the published release
 
           ## Verification
-          - GitHub Actions will re-run the repo's Harn CI lanes
+          - GitHub Actions will rerun the repo's Harn CI lanes
           EOF
 
           PR_NUMBER="$(gh pr list --repo "${REPO}" --head "${BRANCH}" --base main --json number --jq '.[0].number // ""')"
