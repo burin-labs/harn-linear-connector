@@ -224,4 +224,14 @@ pipeline test(task) {
   let slash_token_calls = http_mock_calls()
   let slash_token_auth = recorded_header(slash_token_calls[len(slash_token_calls) - 1].headers, "authorization")
   assert(slash_token_auth == "Bearer oauth/with/slash" || slash_token_auth == "[redacted]")
+  let invalid_url = try {
+    call(
+      "graphql",
+      {api_base_url: "not-a-url", api_key: "lin_api_key", query: "query Viewer { viewer { id } }"},
+    )
+  }
+  assert(is_err(invalid_url))
+  let invalid_url_error = unwrap_err(invalid_url)
+  assert_eq(invalid_url_error.code, "http_error")
+  assert_eq(invalid_url_error.category, "invalid_request")
 }

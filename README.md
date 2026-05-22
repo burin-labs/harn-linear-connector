@@ -6,7 +6,7 @@ Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
 > **Status: pre-alpha** — this repo is a first-party connector package for
-> Harn `0.8.26` or newer. CI installs the pinned CLI version from
+> Harn `0.8.32` or newer. CI installs the pinned CLI version from
 > `.harn-version`.
 
 This is an **inbound + outbound** connector implementing Harn Connector
@@ -16,10 +16,10 @@ Contract v1. The canonical contract docs live in the Harn repo:
 - [Connector architecture](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/architecture.md)
 
 Linear has no OpenAPI spec — its public API is GraphQL. Outbound calls use
-Harn's `std/graphql` operation/envelope helpers so query documents, errors,
-rate-limit metadata, and cursor pagination are handled the same way as other
-GraphQL-first connector packages. A larger fully generated `linear-sdk-harn`
-can build on the same substrate later.
+Harn's `std/graphql` operation/envelope helpers and shared connector HTTP
+policy so query documents, errors, rate-limit metadata, and cursor pagination
+are handled the same way as other GraphQL-first connector packages. A larger
+fully generated `linear-sdk-harn` can build on the same substrate later.
 
 ## Install
 
@@ -67,9 +67,10 @@ trigger triage on linear {
 
 Inbound webhooks require the Linear webhook signing secret. The connector
 checks `raw.signing_secret`, `raw.metadata.signing_secret`,
-`binding.config.signing_secret`, `binding.config.secrets.signing_secret`, or
-managed-ingress secret aliases in `raw.metadata.secret_ids`; otherwise it reads
-`linear/webhook-secret` through `secret_get`.
+`binding.config.signing_secret`, `binding.config.secrets.signing_secret`,
+`binding.config.secret_ids.signing_secret`, or managed-ingress secret aliases
+in `raw.metadata.secret_ids` or `raw.metadata.config.secret_ids`; otherwise it
+reads `linear/webhook-secret` through `secret_get`.
 
 Outbound calls require one of:
 
