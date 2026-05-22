@@ -159,5 +159,5 @@ body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\"
 expect_type = "reject"
 expect_event_count = 0
 
-# Harn-side package dependencies live here. This package currently has none.
+# Harn-side package dependencies live here.
 [dependencies]

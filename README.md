@@ -5,9 +5,8 @@ webhook signatures, enforces Linear's 60-second replay window, normalizes
 Linear event payloads to the canonical `TriggerEvent` shape, and dispatches
 outbound GraphQL queries.
 
-> **Status: pre-alpha** — this repo is a first-party connector package for
-> Harn `0.8.32` or newer. CI installs the pinned CLI version from
-> `.harn-version`.
+> **Status:** pre-alpha. This repo is a first-party connector package for
+> Harn. CI installs the pinned CLI version from [`.harn-version`](./.harn-version).
 
 This is an **inbound + outbound** connector implementing Harn Connector
 Contract v1. The canonical contract docs live in the Harn repo:
@@ -15,11 +14,10 @@ Contract v1. The canonical contract docs live in the Harn repo:
 - [Connector authoring](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md)
 - [Connector architecture](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/architecture.md)
 
-Linear has no OpenAPI spec — its public API is GraphQL. Outbound calls use
+Linear has no OpenAPI spec. Its public API is GraphQL. Outbound calls use
 Harn's `std/graphql` operation/envelope helpers and shared connector HTTP
 policy so query documents, errors, rate-limit metadata, and cursor pagination
-are handled the same way as other GraphQL-first connector packages. A larger
-fully generated `linear-sdk-harn` can build on the same substrate later.
+are handled the same way as other GraphQL-first connector packages.
 
 ## Install
 
@@ -47,7 +45,8 @@ trigger triage on linear {
     events: ["Issue"],
   }
   on event {
-    if event.action == "create" && event.data.priority == 1 {
+    let raw = event.provider_payload.raw
+    if raw.action == "create" && raw.data.priority == 1 {
       linear_connector.call("graphql", {
         query: """
           mutation Comment($issueId: String!, $body: String!) {
@@ -56,7 +55,7 @@ trigger triage on linear {
             }
           }
         """,
-        variables: { issueId: event.data.id, body: "Auto-triaged: urgent." },
+        variables: { issueId: raw.data.id, body: "Auto-triaged: urgent." },
       })
     }
   }
@@ -87,8 +86,8 @@ scripts or private automation. Minimum OAuth scopes depend on the methods used:
 - `read` for `list_issues`, `search`, and read-only `graphql` queries.
 - `write` or narrower write scopes for mutations.
 - `comments:create` is enough for `create_comment`.
-- `issues:create` is only needed if future recipes add issue creation.
-- Avoid `admin`; this connector does not require it for the MVP methods.
+- `issues:create` is only needed for workflows that create issues.
+- Avoid `admin`; these helpers do not require it.
 
 ## Inbound Events
 
@@ -104,7 +103,8 @@ Supported Linear webhook resources are:
 
 Actions are `create`, `update`, and `remove`. Unknown resources are normalized
 with their lower-case resource name; unknown actions are rejected. Dedupe keys
-prefer `Linear-Delivery`, then `webhookId`, then `sha256(raw_body)`.
+prefer `linear:<Linear-Delivery>`, then `linear:<webhookId>`, then
+`linear:sha256:<raw-body-hash>`.
 
 ## Outbound Methods
 
@@ -112,7 +112,7 @@ prefer `Linear-Delivery`, then `webhookId`, then `sha256(raw_body)`.
 `variables`, optional `operation_name` / `operationName`, auth, and optional
 `api_base_url`.
 
-Typed MVP helpers are local to this package:
+Typed helpers are local to this package:
 
 - `list_issues({ filter?, first?, after?, include_archived? })`
 - `update_issue({ id, changes })`
@@ -122,8 +122,8 @@ Typed MVP helpers are local to this package:
 Connection-returning methods preserve Linear pagination data in `pageInfo`.
 Callers should pass `pageInfo.endCursor` as `after` while
 `pageInfo.hasNextPage` is true. `search` uses Linear's `searchIssues` field and
-falls back from the newer `query` argument to the older `term` argument when
-Linear returns a GraphQL validation error.
+falls back to `term` when Linear returns a GraphQL validation error for the
+`query` argument.
 
 GraphQL responses always include `meta` on success. Typed helper return objects
 also receive this `meta` field:
@@ -150,7 +150,7 @@ returns `NormalizeResult` v1:
   cases return `{ type: "reject", status, headers, body }`
 
 Dedupe keys are deterministic. The connector prefers `Linear-Delivery`, then
-`webhookId`, and finally `sha256(raw_body)`. Event kinds are
+`webhookId`, and finally a hash of the raw request body. Event kinds are
 `linear.<resource>.<action>`, for example `linear.issue.update` and
 `linear.comment.create`.
 
@@ -170,9 +170,9 @@ CI installs the pinned Harn CLI from `.harn-version` and runs the same full
 package gate. Local development should use the installed CLI and this package's
 `harn.toml`; it should not depend on a sibling `~/projects/harn` checkout.
 
-The connector contract fixtures include a harn-cloud managed-ingress-shaped
-delivery with `metadata.secret_ids.signing_secret = "linear.webhook.secret"`.
-Harn Cloud maps that alias when the connector calls `secret_get("linear/signing_secret")`,
+The connector contract fixtures include a Harn Cloud managed-ingress delivery
+with `metadata.secret_ids.signing_secret = "linear.webhook.secret"`. Harn Cloud
+maps that alias when the connector calls `secret_get("linear/signing_secret")`,
 so tests cover managed ingress without live provider credentials.
 
 ## License
