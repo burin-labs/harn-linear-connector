@@ -1,9 +1,15 @@
 import {
+  connector_http_header,
+  connector_http_json,
+  verify_hmac_signature,
+} from "std/connectors/shared"
+import {
   graphql_auth_headers,
   graphql_extract,
   graphql_normalize_response,
   graphql_operation,
   graphql_page_info,
+  graphql_request_body,
 } from "std/graphql"
 import { merge } from "std/json"
 
@@ -42,17 +48,7 @@ fn __search_issues_term_query() {
 }
 
 fn __header(headers, name) {
-  let wanted = lowercase(name)
-  for entry in headers ?? {} {
-    if lowercase(entry.key) == wanted {
-      return entry.value
-    }
-  }
-  return nil
-}
-
-fn __dict_header(headers, name) {
-  return __header(headers ?? {}, name)
+  return connector_http_header(headers ?? {}, name)
 }
 
 fn __binding_for_raw(raw) {
@@ -90,16 +86,42 @@ fn __auth_token(literal, secret_ref, fallback_id) {
   return __secret_ref(secret_ref, fallback_id)
 }
 
-fn __metadata_secret_alias(raw, name) {
-  if raw?.metadata?.secret_ids?[name] != nil {
-    let value = try {
-      secret_get("linear/" + name)
-    }
-    if is_ok(value) {
-      return unwrap(value)
-    }
+fn __secret_id_candidate(value, fallback_name) {
+  let raw = trim(to_string(value ?? ""))
+  if raw == "" {
+    return nil
+  }
+  if contains(raw, "/") {
+    return raw
+  }
+  return "linear/" + fallback_name
+}
+
+fn __secret_get_optional(secret_id) {
+  if secret_id == nil {
+    return nil
+  }
+  let value = try {
+    secret_get(secret_id)
+  }
+  if is_ok(value) {
+    return unwrap(value)
   }
   return nil
+}
+
+fn __secret_ref_with_alias(value, fallback_name, fallback_id) {
+  let candidate = __secret_id_candidate(value, fallback_name)
+  if candidate != nil {
+    return secret_get(candidate)
+  }
+  return secret_get(fallback_id)
+}
+
+fn __metadata_secret_alias(raw, name) {
+  let alias = raw?.metadata?.secret_ids?[name] ?? raw?.metadata?.config?.secret_ids?[name]
+    ?? raw?.config?.secret_ids?[name]
+  return __secret_get_optional(__secret_id_candidate(alias, name))
 }
 
 fn __signing_secret(raw) {
@@ -112,7 +134,11 @@ fn __signing_secret(raw) {
   if literal != nil && trim(to_string(literal)) != "" {
     return to_string(literal)
   }
-  return __secret_ref(config?.secrets?.signing_secret, __default_signing_secret_id())
+  return __secret_ref_with_alias(
+    config?.secrets?.signing_secret ?? config?.secret_ids?.signing_secret,
+    "signing_secret",
+    __default_signing_secret_id(),
+  )
 }
 
 fn __received_at_seconds(raw) {
@@ -201,6 +227,13 @@ fn __verify(raw, body) {
     return __reject(400, "missing_webhook_timestamp", "Linear webhookTimestamp is required")
   }
   let timestamp_ms = __unix_ms(body.webhookTimestamp)
+  if timestamp_ms == nil {
+    return __reject(
+      400,
+      "invalid_webhook_timestamp",
+      "Linear webhookTimestamp must be a Unix millisecond timestamp",
+    )
+  }
   let received_ms = to_int(__received_at_seconds(raw) * 1000)
   let age_ms = if received_ms >= timestamp_ms {
     received_ms - timestamp_ms
@@ -218,8 +251,12 @@ fn __verify(raw, body) {
   if signature == nil || trim(signature) == "" {
     return __reject(401, "missing_signature", "linear-signature header is required")
   }
-  let expected = hmac_sha256(__signing_secret(raw), raw.body_text ?? json_stringify(body))
-  if !constant_time_eq(expected, trim(signature)) {
+  if !verify_hmac_signature(
+    raw.body_text ?? json_stringify(body),
+    signature,
+    __signing_secret(raw),
+    "sha256",
+  ) {
     return __reject(401, "invalid_signature", "linear-signature did not match the raw request body")
   }
   return nil
@@ -285,20 +322,6 @@ fn __auth_config(args) {
   }
 }
 
-fn __graphql_errors(payload) {
-  if type_of(payload?.errors) == "list" && len(payload.errors) > 0 {
-    return payload.errors
-      .map(
-      { error -> {
-        message: error?.message ?? "Linear GraphQL error",
-        path: error?.path,
-        extensions: error?.extensions ?? {},
-      } },
-    )
-  }
-  return []
-}
-
 fn __graphql_error_codes(errors) {
   return (errors ?? []).map({ error -> to_string(error?.extensions?.code ?? "") })
 }
@@ -325,7 +348,7 @@ fn __rate_limited(status, errors) {
 }
 
 fn __int_header(headers, name) {
-  let value = __dict_header(headers, name)
+  let value = connector_http_header(headers ?? {}, name)
   if value == nil || trim(to_string(value)) == "" {
     return nil
   }
@@ -374,6 +397,21 @@ fn __graphql_meta(headers, query, variables = nil) {
   }
 }
 
+fn __meta_with_complexity(meta, header_meta) {
+  return merge(
+    meta ?? {},
+    {
+      observed_complexity: header_meta.observed_complexity,
+      complexity_estimate: header_meta.complexity_estimate,
+      complexity_warning: header_meta.complexity_warning,
+    },
+  )
+}
+
+fn __missing_http_response(response) {
+  return !(response?.ok ?? false) && response?.status == nil && response?.body == nil
+}
+
 fn __required_string(args, field) {
   let value = args?[field]
   if value == nil || trim(to_string(value)) == "" {
@@ -393,28 +431,36 @@ fn __graphql(args) {
   } else {
     auth.token
   }
-  let request = {
-    query: query,
-    variables: args?.variables ?? {},
-    operationName: args?.operation_name ?? args?.operationName,
-  }
-  let response = http_post(
+  let request = graphql_request_body(
+    query,
+    args?.variables ?? {},
+    {operation_name: args?.operation_name ?? args?.operationName},
+  )
+  let response = connector_http_json(
+    "POST",
     args?.api_base_url ?? __default_api_base_url(),
-    json_stringify(request),
     {
+      provider: "linear",
+      operation: request.operationName ?? "graphql",
       headers: graphql_auth_headers({authorization: authorization}, {"User-Agent": "harn-linear-connector"}),
+      body: json_stringify(request),
     },
   )
-  let envelope = graphql_normalize_response(response, {operation_name: request.operationName})
   let header_meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
-  let merged_meta = merge(
-    envelope.meta,
-    {
-      observed_complexity: header_meta.observed_complexity,
-      complexity_estimate: header_meta.complexity_estimate,
-      complexity_warning: header_meta.complexity_warning,
-    },
-  )
+  if __missing_http_response(response) {
+    throw {
+      message: to_string(response?.error?.message ?? "linear GraphQL request failed before receiving a response"),
+      code: "http_error",
+      status: response?.status,
+      category: response?.category ?? response?.error?.category,
+      retryable: response?.retryable ?? response?.error?.retryable,
+      errors: [],
+      data: nil,
+      meta: __meta_with_complexity({}, header_meta),
+    }
+  }
+  let envelope = graphql_normalize_response(response, {operation_name: request.operationName})
+  let merged_meta = __meta_with_complexity(envelope.meta, header_meta)
   if !envelope.ok {
     let errors = envelope.errors
     let code = if __rate_limited(envelope.meta.status, errors) {

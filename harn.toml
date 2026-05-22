@@ -15,8 +15,8 @@ capabilities = ["webhook", "oauth", "rate_limit", "pagination", "graphql"]
 
 [providers.setup]
 auth_type = "oauth2"
-flow = "oauth2"
-required_scopes = ["read"]
+flow = "browser"
+required_scopes = ["read", "write"]
 required_secrets = ["linear/api-token", "linear/webhook-secret"]
 setup_command = ["harn", "connect", "linear"]
 validation_command = ["harn", "connect", "status", "--connector", "linear", "--json"]
