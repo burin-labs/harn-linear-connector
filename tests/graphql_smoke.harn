@@ -14,7 +14,7 @@ pipeline test(task) {
   http_mock_clear()
   http_mock(
     "POST",
-    "https://linear.test/graphql",
+    "https://api.linear.app/graphql",
     {
       responses: [
         {
@@ -73,7 +73,7 @@ pipeline test(task) {
   let ok = call(
     "graphql",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       api_key: "lin_api_key",
       query: "query Viewer { viewer { id } }",
     },
@@ -90,7 +90,7 @@ pipeline test(task) {
     call(
       "graphql",
       {
-        api_base_url: "https://linear.test/graphql",
+        api_base_url: "https://api.linear.app/graphql",
         access_token: "oauth-token",
         query: "query Viewer { viewer { id } }",
       },
@@ -104,7 +104,7 @@ pipeline test(task) {
   let issues = call(
     "list_issues",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       access_token: "oauth-token",
       filter: {priority: {lte: 2}},
       first: 10,
@@ -119,7 +119,7 @@ pipeline test(task) {
   let updated = call(
     "update_issue",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       access_token: "oauth-token",
       id: "iss_1",
       changes: {title: "Updated"},
@@ -130,7 +130,7 @@ pipeline test(task) {
   let comment = call(
     "create_comment",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       access_token: "oauth-token",
       issue_id: "iss_1",
       body: "Looks good",
@@ -140,7 +140,7 @@ pipeline test(task) {
   let search = call(
     "search",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       access_token: "oauth-token",
       query: "connector",
       first: 5,
@@ -151,7 +151,7 @@ pipeline test(task) {
     call(
       "graphql",
       {
-        api_base_url: "https://linear.test/graphql",
+        api_base_url: "https://api.linear.app/graphql",
         access_token: "oauth-token",
         query: "query Viewer { viewer { id name } }",
       },
@@ -165,7 +165,7 @@ pipeline test(task) {
     call(
       "graphql",
       {
-        api_base_url: "https://linear.test/graphql",
+        api_base_url: "https://api.linear.app/graphql",
         access_token: "oauth-token",
         query: "query Viewer { viewer { id } }",
       },
@@ -193,7 +193,7 @@ pipeline test(task) {
   let malformed_header = call(
     "graphql",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       api_key: "lin_api_key",
       query: "query Viewer { viewer { id } }",
     },
@@ -203,7 +203,7 @@ pipeline test(task) {
   let api_token = call(
     "graphql",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       api_token: "lin_api_token",
       query: "query Viewer { viewer { id } }",
     },
@@ -215,7 +215,7 @@ pipeline test(task) {
   let slash_token = call(
     "graphql",
     {
-      api_base_url: "https://linear.test/graphql",
+      api_base_url: "https://api.linear.app/graphql",
       access_token: "oauth/with/slash",
       query: "query Viewer { viewer { id } }",
     },
@@ -224,6 +224,10 @@ pipeline test(task) {
   let slash_token_calls = http_mock_calls()
   let slash_token_auth = recorded_header(slash_token_calls[len(slash_token_calls) - 1].headers, "authorization")
   assert(slash_token_auth == "Bearer oauth/with/slash" || slash_token_auth == "[redacted]")
+  // F8: api_base_url is validated before any HTTP attempt. Non-URL inputs
+  // are rejected with `invalid_api_base_url`; non-allowlisted hosts are
+  // rejected with `disallowed_api_base_url` so OAuth tokens / API keys
+  // cannot reach attacker-controlled origins.
   let invalid_url = try {
     call(
       "graphql",
@@ -231,7 +235,23 @@ pipeline test(task) {
     )
   }
   assert(is_err(invalid_url))
-  let invalid_url_error = unwrap_err(invalid_url)
-  assert_eq(invalid_url_error.code, "http_error")
-  assert_eq(invalid_url_error.category, "invalid_request")
+  assert_eq(unwrap_err(invalid_url).code, "invalid_api_base_url")
+  let disallowed_host = try {
+    call(
+      "graphql",
+      {
+        api_base_url: "https://evil.example/graphql",
+        api_key: "lin_api_key",
+        query: "query Viewer { viewer { id } }",
+      },
+    )
+  }
+  assert(is_err(disallowed_host))
+  assert_eq(unwrap_err(disallowed_host).code, "disallowed_api_base_url")
+  // F9: secret refs that aren't in the linear/ namespace are rejected.
+  let bad_secret = try {
+    call("graphql", {api_key_secret: "evil/api-token", query: "query Viewer { viewer { id } }"})
+  }
+  assert(is_err(bad_secret))
+  assert_eq(unwrap_err(bad_secret).code, "invalid_secret_ref")
 }
