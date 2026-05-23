@@ -23,6 +23,71 @@ fn __default_api_base_url() {
   return "https://api.linear.app/graphql"
 }
 
+/**
+ * Hosts permitted for outbound Linear GraphQL calls. Caller-supplied
+ * `api_base_url` overrides are validated against this allowlist (F8) so
+ * OAuth tokens / API keys can never be shipped to attacker-controlled
+ * hosts.
+ */
+fn __allowed_api_hosts() {
+  return ["api.linear.app"]
+}
+
+fn __extract_host(url) {
+  let trimmed = trim(to_string(url ?? ""))
+  if trimmed == "" {
+    return nil
+  }
+  let lower = lowercase(trimmed)
+  var rest = nil
+  if lower.starts_with("https://") {
+    rest = trimmed[8:len(trimmed)]
+  } else if lower.starts_with("http://") {
+    rest = trimmed[7:len(trimmed)]
+  } else {
+    return nil
+  }
+  let at_idx = rest.index_of("@")
+  if at_idx != nil && at_idx >= 0 {
+    rest = rest[at_idx + 1:len(rest)]
+  }
+  var end = len(rest)
+  for ch in ["/", "?", "#"] {
+    let idx = rest.index_of(ch)
+    if idx != nil && idx >= 0 && idx < end {
+      end = idx
+    }
+  }
+  var host = rest[0:end]
+  let colon_idx = host.index_of(":")
+  if colon_idx != nil && colon_idx >= 0 {
+    host = host[0:colon_idx]
+  }
+  return lowercase(host)
+}
+
+fn __validate_api_base_url(url) {
+  let default_url = __default_api_base_url()
+  if url == nil {
+    return default_url
+  }
+  let text = trim(to_string(url))
+  if text == "" || text == default_url {
+    return default_url
+  }
+  let host = __extract_host(text)
+  if host == nil {
+    throw {code: "invalid_api_base_url", message: "linear api_base_url must be an absolute http(s) URL"}
+  }
+  if !contains(__allowed_api_hosts(), host) {
+    throw {
+      code: "disallowed_api_base_url",
+      message: "linear api_base_url host `" + host + "` is not in the allowlist",
+    }
+  }
+  return text
+}
+
 fn __complexity_warning_threshold() {
   return 5000
 }
@@ -70,10 +135,26 @@ fn __binding_config(raw) {
   return raw?.config ?? raw?.metadata?.config ?? __binding_for_raw(raw)?.config ?? {}
 }
 
+/**
+ * F9: only allow secret references that live under the `linear/` namespace.
+ * A raw value like `othertenant/api-token` could otherwise cross-tenant
+ * leak if the secret backend doesn't enforce isolation.
+ */
+fn __is_allowed_secret_id(value) {
+  let raw = trim(to_string(value ?? ""))
+  if raw == "" {
+    return false
+  }
+  return raw.starts_with("linear/")
+}
+
 fn __secret_ref(value, fallback_id) {
   let raw = trim(to_string(value ?? ""))
   if raw == "" {
     return secret_get(fallback_id)
+  }
+  if !__is_allowed_secret_id(raw) {
+    throw {code: "invalid_secret_ref", message: "linear connector secret refs must start with `linear/`"}
   }
   return secret_get(raw)
 }
@@ -92,6 +173,10 @@ fn __secret_id_candidate(value, fallback_name) {
     return nil
   }
   if contains(raw, "/") {
+    // F9: only honor caller-supplied secret IDs in our own namespace.
+    if !__is_allowed_secret_id(raw) {
+      throw {code: "invalid_secret_ref", message: "linear connector secret refs must start with `linear/`"}
+    }
     return raw
   }
   return "linear/" + fallback_name
@@ -113,9 +198,9 @@ fn __secret_get_optional(secret_id) {
 fn __secret_ref_with_alias(value, fallback_name, fallback_id) {
   let candidate = __secret_id_candidate(value, fallback_name)
   if candidate != nil {
-    return secret_get(candidate)
+    return __secret_get_optional(candidate)
   }
-  return secret_get(fallback_id)
+  return __secret_get_optional(fallback_id)
 }
 
 fn __metadata_secret_alias(raw, name) {
@@ -139,20 +224,6 @@ fn __signing_secret(raw) {
     "signing_secret",
     __default_signing_secret_id(),
   )
-}
-
-fn __received_at_seconds(raw) {
-  let value = raw?.received_at
-  if value == nil {
-    return date_now().timestamp
-  }
-  let parsed = try {
-    date_parse(to_string(value).replace("T", " ").replace("Z", ""))
-  }
-  if is_ok(parsed) {
-    return unwrap(parsed)
-  }
-  return date_now().timestamp
 }
 
 fn __unix_ms(value) {
@@ -212,14 +283,30 @@ fn __valid_action(action) {
 }
 
 fn __dedupe_key(raw, body) {
+  // F3: prefer the signed-body webhookId over the linear-delivery header so
+  // attackers cannot bypass dedupe by replaying captured (body, signature)
+  // pairs while rotating the header.
+  if body?.webhookId != nil {
+    return "linear:" + body.webhookId
+  }
   let delivery = __header(raw.headers, "linear-delivery")
   if delivery != nil && delivery != "" {
     return "linear:" + delivery
   }
-  if body?.webhookId != nil {
-    return "linear:" + body.webhookId
-  }
   return "linear:sha256:" + sha256(raw.body_text ?? json_stringify(body))
+}
+
+/**
+ * Cap on the replay-window override callers may configure. Bindings that
+ * try to widen the window beyond this value are rejected at activation;
+ * legacy callers that fall through to the default get LINEAR_REPLAY_WINDOW_DEFAULT_SECS.
+ */
+fn __replay_window_max_secs() {
+  return 600
+}
+
+fn __replay_window_default_secs() {
+  return 60
 }
 
 fn __verify(raw, body) {
@@ -234,15 +321,43 @@ fn __verify(raw, body) {
       "Linear webhookTimestamp must be a Unix millisecond timestamp",
     )
   }
-  let received_ms = to_int(__received_at_seconds(raw) * 1000)
+  // F1: refuse to HMAC-verify against a re-serialized body — Linear signs the
+  // raw bytes and JSON re-encoding (key ordering, whitespace, escaping) won't
+  // round-trip. If the host stripped raw.body_text, we cannot prove integrity.
+  let body_text = raw?.body_text
+  if body_text == nil || to_string(body_text) == "" {
+    return __reject(
+      400,
+      "missing_body_text",
+      "Linear connector requires raw.body_text to HMAC-verify against the bytes Linear signed",
+    )
+  }
+  // F10: trust the clock, not the envelope. raw.received_at is host-supplied
+  // and can be plumbed from an attacker-controllable field; deriving `now`
+  // from date_now() keeps the replay window meaningful for hostile callers.
+  let received_ms = to_int(date_now().timestamp * 1000)
   let age_ms = if received_ms >= timestamp_ms {
     received_ms - timestamp_ms
   } else {
     timestamp_ms - received_ms
   }
   let config = __binding_config(raw)
-  let replay_window_secs = config?.replay_window_secs ?? config?.security?.replay_window_secs ?? 60
-  let replay_grace_secs = config?.replay_grace_secs ?? config?.security?.replay_grace_secs ?? 0
+  // F4: cap caller-supplied replay window at __replay_window_max_secs() — a
+  // 24h window defeats the freshness check. Default unchanged at 60s.
+  let raw_window = config?.replay_window_secs ?? config?.security?.replay_window_secs
+    ?? __replay_window_default_secs()
+  let raw_grace = config?.replay_grace_secs ?? config?.security?.replay_grace_secs ?? 0
+  let max = __replay_window_max_secs()
+  let replay_window_secs = if raw_window > max {
+    max
+  } else {
+    raw_window
+  }
+  let replay_grace_secs = if raw_grace > max {
+    max
+  } else {
+    raw_grace
+  }
   if age_ms > (replay_window_secs + replay_grace_secs) * 1000 {
     __metrics_inc("linear_webhook_replay_rejections", 1)
     return __reject(401, "timestamp_out_of_window", "Linear webhookTimestamp is outside the replay window")
@@ -251,12 +366,17 @@ fn __verify(raw, body) {
   if signature == nil || trim(signature) == "" {
     return __reject(401, "missing_signature", "linear-signature header is required")
   }
-  if !verify_hmac_signature(
-    raw.body_text ?? json_stringify(body),
-    signature,
-    __signing_secret(raw),
-    "sha256",
-  ) {
+  // F2: explicit missing_secret guard before hmac so we never compute
+  // hmac_sha256(nil, body). Mirrors Slack's `slack/signing_secret` check.
+  let secret = __signing_secret(raw)
+  if secret == nil || trim(to_string(secret)) == "" {
+    return __reject(
+      401,
+      "missing_secret",
+      "Linear signing secret is not configured; set linear/webhook-secret or binding.config.signing_secret",
+    )
+  }
+  if !verify_hmac_signature(body_text, signature, secret, "sha256") {
     return __reject(401, "invalid_signature", "linear-signature did not match the raw request body")
   }
   return nil
@@ -436,9 +556,10 @@ fn __graphql(args) {
     args?.variables ?? {},
     {operation_name: args?.operation_name ?? args?.operationName},
   )
+  let api_base_url = __validate_api_base_url(args?.api_base_url)
   let response = connector_http_json(
     "POST",
-    args?.api_base_url ?? __default_api_base_url(),
+    api_base_url,
     {
       provider: "linear",
       operation: request.operationName ?? "graphql",
@@ -616,7 +737,31 @@ pub fn init(ctx) {
 
 /** Activate Linear trigger bindings for inbound and outbound configuration. */
 pub fn activate(bindings) {
-  connector_state.bindings = bindings ?? []
+  let resolved = bindings ?? []
+  // F4: reject bindings that try to widen the replay window beyond
+  // __replay_window_max_secs(). A configured 24h window is a sharp edge
+  // (canonical OTP-lifetime mistake) that defeats the freshness check.
+  let max = __replay_window_max_secs()
+  for binding in resolved {
+    let cfg = binding?.config ?? {}
+    let window = cfg?.replay_window_secs ?? cfg?.security?.replay_window_secs
+    let grace = cfg?.replay_grace_secs ?? cfg?.security?.replay_grace_secs
+    if window != nil && to_int(window) > max {
+      throw {
+        code: "replay_window_too_large",
+        message: "linear binding replay_window_secs " + to_string(window) + " exceeds maximum "
+          + to_string(max),
+      }
+    }
+    if grace != nil && to_int(grace) > max {
+      throw {
+        code: "replay_window_too_large",
+        message: "linear binding replay_grace_secs " + to_string(grace) + " exceeds maximum "
+          + to_string(max),
+      }
+    }
+  }
+  connector_state.bindings = resolved
   __metrics_inc("linear_connector_activations", len(connector_state.bindings))
   return nil
 }
