@@ -11,6 +11,7 @@ fn recorded_header(headers, name) {
 }
 
 pipeline test(task) {
+  egress_policy({allow: ["api.linear.app"], default: "deny"})
   http_mock_clear()
   http_mock(
     "POST",
