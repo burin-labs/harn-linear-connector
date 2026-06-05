@@ -626,7 +626,15 @@ fn __execute(operation, variables, args) {
   } else {
     result
   }
-  return merge(envelope, {result: shaped_result})
+  return {
+    ok: envelope.ok,
+    partial: envelope.partial,
+    data: envelope.data,
+    errors: envelope.errors,
+    extensions: envelope.extensions,
+    meta: envelope.meta,
+    result: shaped_result,
+  }
 }
 
 fn __list_issues_operation() {
