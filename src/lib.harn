@@ -609,7 +609,7 @@ fn __operation(name, document, options = nil) {
 
 fn __execute(operation, variables, args) {
   let envelope = __graphql(
-    args ?? {}
+    (args ?? {})
       + {
       query: operation.document,
       variables: variables,
@@ -804,7 +804,7 @@ pub fn call(method, args) {
     return __update_issue(args ?? {})
   }
   if method == "create_comment" {
-    return __create_comment(args ?? {} + {issue_id: args?.issue_id ?? args?.issueId})
+    return __create_comment((args ?? {}) + {issue_id: args?.issue_id ?? args?.issueId})
   }
   if method == "search" {
     return __search(args ?? {})
