@@ -103,8 +103,9 @@ Supported Linear webhook resources are:
 
 Actions are `create`, `update`, and `remove`. Unknown resources are normalized
 with their lower-case resource name; unknown actions are rejected. Dedupe keys
-prefer `linear:<Linear-Delivery>`, then `linear:<webhookId>`, then
-`linear:sha256:<raw-body-hash>`.
+prefer the signed `linear:<webhookId>`, then `linear:<Linear-Delivery>`, then
+`linear:sha256:<raw-body-hash>`. This prevents a replay from changing an
+unsigned delivery header to bypass deduplication.
 
 ## Outbound methods
 
@@ -149,10 +150,8 @@ returns `NormalizeResult` v1:
 - failed signature, missing timestamp, replay-window, and unsupported-action
   cases return `{ type: "reject", status, headers, body }`
 
-Dedupe keys are deterministic. The connector prefers `Linear-Delivery`, then
-`webhookId`, and finally a hash of the raw request body. Event kinds are
-`linear.<resource>.<action>`, for example `linear.issue.update` and
-`linear.comment.create`.
+Event kinds are `linear.<resource>.<action>`, for example
+`linear.issue.update` and `linear.comment.create`.
 
 Run the local contract and fixture suite with:
 

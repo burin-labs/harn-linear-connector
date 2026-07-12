@@ -2,9 +2,8 @@
 
 Pure-Harn connector package for Linear webhooks and GraphQL outbound calls.
 
-Shared Harn connector authoring rules live in the canonical guide:
-
-- <https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md>
+Shared Harn connector authoring rules are in the
+[connector authoring guide](https://github.com/burin-labs/harn/blob/main/docs/src/connectors/authoring.md).
 
 Keep this file limited to Linear-specific notes and local hazards. Put shared connector guidance in
 the Harn guide first.
