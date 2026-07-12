@@ -9,7 +9,7 @@ Shared Harn connector authoring rules live in the canonical guide:
 Keep this file limited to Linear-specific notes and local hazards. Put shared connector guidance in
 the Harn guide first.
 
-## Provider Notes
+## Provider notes
 
 - Webhook verification uses `linear-signature` with the Linear webhook secret and enforces the
   provider replay window.
