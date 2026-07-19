@@ -29,37 +29,45 @@ pipeline test(task) {
         },
         {
           status: 200,
-          body: "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
+          body:
+            "{\"errors\":[{\"message\":\"Invalid token\",\"path\":[\"viewer\"],\"extensions\":{\"code\":\"AUTHENTICATION_ERROR\"}}]}",
         },
         {
           status: 200,
           headers: {"x-complexity": "48", "x-ratelimit-requests-remaining": "49"},
-          body: "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
+          body:
+            "{\"data\":{\"issues\":{\"nodes\":[{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Connector issue\"}],\"pageInfo\":{\"hasNextPage\":true,\"endCursor\":\"cursor-1\"}}}}",
         },
         {
           status: 200,
-          body: "{\"data\":{\"issueUpdate\":{\"success\":true,\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Updated\"}}}}",
+          body:
+            "{\"data\":{\"issueUpdate\":{\"success\":true,\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\",\"title\":\"Updated\"}}}}",
         },
         {
           status: 200,
-          body: "{\"data\":{\"commentCreate\":{\"success\":true,\"comment\":{\"id\":\"com_1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\"}}}}}",
+          body:
+            "{\"data\":{\"commentCreate\":{\"success\":true,\"comment\":{\"id\":\"com_1\",\"body\":\"Looks good\",\"issue\":{\"id\":\"iss_1\",\"identifier\":\"ENG-1\"}}}}}",
         },
         {
           status: 200,
-          body: "{\"errors\":[{\"message\":\"Unknown argument \\\"query\\\" on field \\\"searchIssues\\\"\",\"extensions\":{\"code\":\"GRAPHQL_VALIDATION_FAILED\"}}]}",
+          body:
+            "{\"errors\":[{\"message\":\"Unknown argument \\\"query\\\" on field \\\"searchIssues\\\"\",\"extensions\":{\"code\":\"GRAPHQL_VALIDATION_FAILED\"}}]}",
         },
         {
           status: 200,
-          body: "{\"data\":{\"searchIssues\":{\"nodes\":[{\"id\":\"iss_2\",\"identifier\":\"ENG-2\",\"title\":\"Search hit\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
+          body:
+            "{\"data\":{\"searchIssues\":{\"nodes\":[{\"id\":\"iss_2\",\"identifier\":\"ENG-2\",\"title\":\"Search hit\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}",
         },
         {
           status: 200,
-          body: "{\"data\":{\"viewer\":{\"id\":\"usr_partial\"}},\"errors\":[{\"message\":\"field failed\",\"path\":[\"viewer\",\"name\"],\"extensions\":{\"code\":\"INTERNAL_ERROR\"}}]}",
+          body:
+            "{\"data\":{\"viewer\":{\"id\":\"usr_partial\"}},\"errors\":[{\"message\":\"field failed\",\"path\":[\"viewer\",\"name\"],\"extensions\":{\"code\":\"INTERNAL_ERROR\"}}]}",
         },
         {
           status: 400,
           headers: {"x-ratelimit-requests-reset": "1776859300"},
-          body: "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
+          body:
+            "{\"errors\":[{\"message\":\"rate limit exceeded\",\"extensions\":{\"code\":\"RATELIMITED\"}}]}",
         },
         {
           status: 200,
@@ -211,7 +219,10 @@ pipeline test(task) {
   )
   assert_eq(api_token.data.viewer.id, "usr_api_token")
   const api_token_calls = http_mock_calls()
-  const api_token_auth = recorded_header(api_token_calls[len(api_token_calls) - 1].headers, "authorization")
+  const api_token_auth = recorded_header(
+    api_token_calls[len(api_token_calls) - 1].headers,
+    "authorization",
+  )
   assert(api_token_auth == "lin_api_token" || api_token_auth == "[redacted]")
   const slash_token = call(
     "graphql",
@@ -223,7 +234,10 @@ pipeline test(task) {
   )
   assert_eq(slash_token.data.viewer.id, "usr_slash_token")
   const slash_token_calls = http_mock_calls()
-  const slash_token_auth = recorded_header(slash_token_calls[len(slash_token_calls) - 1].headers, "authorization")
+  const slash_token_auth = recorded_header(
+    slash_token_calls[len(slash_token_calls) - 1].headers,
+    "authorization",
+  )
   assert(slash_token_auth == "Bearer oauth/with/slash" || slash_token_auth == "[redacted]")
   // F8: api_base_url is validated before any HTTP attempt. Non-URL inputs
   // are rejected with `invalid_api_base_url`; non-allowlisted hosts are

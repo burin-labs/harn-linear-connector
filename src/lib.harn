@@ -77,7 +77,10 @@ fn __validate_api_base_url(url) {
   }
   const host = __extract_host(text)
   if host == nil {
-    throw {code: "invalid_api_base_url", message: "linear api_base_url must be an absolute http(s) URL"}
+    throw {
+      code: "invalid_api_base_url",
+      message: "linear api_base_url must be an absolute http(s) URL",
+    }
   }
   if !contains(__allowed_api_hosts(), host) {
     throw {
@@ -154,7 +157,10 @@ fn __secret_ref(value, fallback_id) {
     return secret_get(fallback_id)
   }
   if !__is_allowed_secret_id(raw) {
-    throw {code: "invalid_secret_ref", message: "linear connector secret refs must start with `linear/`"}
+    throw {
+      code: "invalid_secret_ref",
+      message: "linear connector secret refs must start with `linear/`",
+    }
   }
   return secret_get(raw)
 }
@@ -175,7 +181,10 @@ fn __secret_id_candidate(value, fallback_name) {
   if contains(raw, "/") {
     // F9: only honor caller-supplied secret IDs in our own namespace.
     if !__is_allowed_secret_id(raw) {
-      throw {code: "invalid_secret_ref", message: "linear connector secret refs must start with `linear/`"}
+      throw {
+        code: "invalid_secret_ref",
+        message: "linear connector secret refs must start with `linear/`",
+      }
     }
     return raw
   }
@@ -205,7 +214,8 @@ fn __secret_ref_with_alias(value, fallback_name, fallback_id) {
 
 fn __metadata_secret_alias(raw, name) {
   const alias = raw?.metadata?.secret_ids?.[name] ?? raw?.metadata?.config?.secret_ids?.[name]
-    ?? raw?.config?.secret_ids?.[name]
+    ?? raw
+    ?.config?.secret_ids?.[name]
   return __secret_get_optional(__secret_id_candidate(alias, name))
 }
 
@@ -360,7 +370,11 @@ fn __verify(raw, body) {
   }
   if age_ms > (replay_window_secs + replay_grace_secs) * 1000 {
     __metrics_inc("linear_webhook_replay_rejections", 1)
-    return __reject(401, "timestamp_out_of_window", "Linear webhookTimestamp is outside the replay window")
+    return __reject(
+      401,
+      "timestamp_out_of_window",
+      "Linear webhookTimestamp is outside the replay window",
+    )
   }
   const signature = __header(raw.headers, "linear-signature")
   if signature == nil || trim(signature) == "" {
@@ -386,7 +400,11 @@ fn __event(raw, body) {
   const resource = __normalize_resource(body?.type ?? __header(raw.headers, "linear-event"))
   const action = body?.action ?? "update"
   if !__valid_action(action) {
-    return __reject(400, "unsupported_action", "Linear action '" + to_string(action) + "' is not supported")
+    return __reject(
+      400,
+      "unsupported_action",
+      "Linear action '" + to_string(action) + "' is not supported",
+    )
   }
   const kind = "linear." + resource + "." + action
   return {
@@ -406,7 +424,10 @@ fn __event(raw, body) {
 fn __auth_config(args) {
   const config = args ?? {}
   if config?.api_token != nil || config?.api_token_secret != nil {
-    return {token: __auth_token(config?.api_token, config?.api_token_secret, "linear/api-token"), oauth: false}
+    return {
+      token: __auth_token(config?.api_token, config?.api_token_secret, "linear/api-token"),
+      oauth: false,
+    }
   }
   if config?.access_token != nil || config?.access_token_secret != nil {
     return {
@@ -415,7 +436,10 @@ fn __auth_config(args) {
     }
   }
   if config?.api_key != nil || config?.api_key_secret != nil {
-    return {token: __auth_token(config?.api_key, config?.api_key_secret, "linear/api-key"), oauth: false}
+    return {
+      token: __auth_token(config?.api_key, config?.api_key_secret, "linear/api-key"),
+      oauth: false,
+    }
   }
   for binding in connector_state.bindings {
     const binding_config = binding?.config ?? {}
@@ -428,16 +452,24 @@ fn __auth_config(args) {
     }
     if secrets?.access_token != nil || binding_config?.access_token != nil {
       return {
-        token: __auth_token(binding_config?.access_token, secrets?.access_token, "linear/access-token"),
+        token: __auth_token(
+          binding_config?.access_token,
+          secrets?.access_token,
+          "linear/access-token",
+        ),
         oauth: true,
       }
     }
     if secrets?.api_key != nil || binding_config?.api_key != nil {
-      return {token: __auth_token(binding_config?.api_key, secrets?.api_key, "linear/api-key"), oauth: false}
+      return {
+        token: __auth_token(binding_config?.api_key, secrets?.api_key, "linear/api-key"),
+        oauth: false,
+      }
     }
   }
   throw {
-    message: "linear connector requires api_token, api_token_secret, access_token, access_token_secret, api_key, or api_key_secret",
+    message:
+      "linear connector requires api_token, api_token_secret, access_token, access_token_secret, api_key, or api_key_secret",
     code: "missing_auth",
   }
 }
@@ -460,7 +492,9 @@ fn __graphql_error_message(status, errors) {
     return "linear GraphQL request failed with status " + to_string(status)
   }
   return "linear GraphQL request failed with status " + to_string(status) + ": "
-    + to_string(errors[0]?.message ?? "Linear GraphQL error")
+    + to_string(
+    errors[0]?.message ?? "Linear GraphQL error",
+  )
 }
 
 fn __rate_limited(status, errors) {
@@ -563,14 +597,19 @@ fn __graphql(args) {
     {
       provider: "linear",
       operation: request.operationName ?? "graphql",
-      headers: graphql_auth_headers({authorization: authorization}, {"User-Agent": "harn-linear-connector"}),
+      headers: graphql_auth_headers(
+        {authorization: authorization},
+        {"User-Agent": "harn-linear-connector"},
+      ),
       body: json_stringify(request),
     },
   )
   const header_meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
   if __missing_http_response(response) {
     throw {
-      message: to_string(response?.error?.message ?? "linear GraphQL request failed before receiving a response"),
+      message: to_string(
+        response?.error?.message ?? "linear GraphQL request failed before receiving a response",
+      ),
       code: "http_error",
       status: response?.status,
       category: response?.category ?? response?.error?.category,
@@ -646,7 +685,11 @@ fn __update_issue_operation() {
 }
 
 fn __create_comment_operation() {
-  return __operation("HarnLinearCreateComment", __create_comment_query(), {root_field: "commentCreate"})
+  return __operation(
+    "HarnLinearCreateComment",
+    __create_comment_query(),
+    {root_field: "commentCreate"},
+  )
 }
 
 fn __search_operation(use_term = false) {
@@ -699,7 +742,10 @@ fn __search(args) {
   }
   const err = unwrap_err(primary)
   if !contains(to_string(err?.message ?? ""), "Unknown argument")
-    && !__has_graphql_error_code(err?.errors, "GRAPHQL_VALIDATION_FAILED") {
+    && !__has_graphql_error_code(
+    err?.errors,
+    "GRAPHQL_VALIDATION_FAILED",
+  ) {
     throw err
   }
   return __execute(__search_operation(true), {term: query, first: first}, args).result
@@ -758,14 +804,18 @@ pub fn activate(bindings) {
       throw {
         code: "replay_window_too_large",
         message: "linear binding replay_window_secs " + to_string(window) + " exceeds maximum "
-          + to_string(max),
+          + to_string(
+          max,
+        ),
       }
     }
     if grace != nil && to_int(grace) > max {
       throw {
         code: "replay_window_too_large",
         message: "linear binding replay_grace_secs " + to_string(grace) + " exceeds maximum "
-          + to_string(max),
+          + to_string(
+          max,
+        ),
       }
     }
   }
