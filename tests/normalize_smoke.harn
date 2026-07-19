@@ -96,12 +96,14 @@ pipeline test(task) {
     assert_eq(normalized.event.signature_status.state, "verified")
     assert_eq(normalized.event.payload.data.id, variant.data_id)
   }
-  const edge_body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859140000,\"webhookId\":\"wh_edge\",\"data\":{\"id\":\"ISS-EDGE\"}}"
+  const edge_body =
+    "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1776859140000,\"webhookId\":\"wh_edge\",\"data\":{\"id\":\"ISS-EDGE\"}}"
   assert_eq(normalize_inbound(raw(edge_body, "test-secret")).type, "event")
   // raw() does NOT refresh string webhookTimestamps; the connector returns
   // invalid_webhook_timestamp before any clock check.
   const now_ms = to_int(date_now().timestamp * 1000)
-  const bad_timestamp_body_fresh = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":\"not-a-number\",\"webhookId\":\"wh_bad_ts\",\"data\":{\"id\":\"ISS-BAD-TS\"}}"
+  const bad_timestamp_body_fresh =
+    "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":\"not-a-number\",\"webhookId\":\"wh_bad_ts\",\"data\":{\"id\":\"ISS-BAD-TS\"}}"
   const bad_signed = hmac_sha256("test-secret", bad_timestamp_body_fresh)
   const bad_timestamp = normalize_inbound(
     {
@@ -121,7 +123,8 @@ pipeline test(task) {
   // Stale-timestamp body: synthesize a body whose webhookTimestamp is far
   // outside the 60s window and sign it with the real secret. The connector
   // must still reject as timestamp_out_of_window (F10 / F4 enforcement).
-  const stale_body = "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1,\"webhookId\":\"wh_stale\",\"data\":{\"id\":\"ISS-STALE\"}}"
+  const stale_body =
+    "{\"action\":\"update\",\"type\":\"Issue\",\"organizationId\":\"org_123\",\"webhookTimestamp\":1,\"webhookId\":\"wh_stale\",\"data\":{\"id\":\"ISS-STALE\"}}"
   const stale_signed = hmac_sha256("test-secret", stale_body)
   const stale = normalize_inbound(
     {
