@@ -151,10 +151,10 @@ fn __is_allowed_secret_id(value) {
   return raw.starts_with("linear/")
 }
 
-fn __secret_ref(harness: Harness, value, fallback_id) {
+fn __secret_ref(harness: HarnessSecrets, value, fallback_id) {
   const raw = trim(to_string(value ?? ""))
   if raw == "" {
-    return harness.secrets.read(fallback_id)
+    return harness.read(fallback_id)
   }
   if !__is_allowed_secret_id(raw) {
     throw {
@@ -162,10 +162,10 @@ fn __secret_ref(harness: Harness, value, fallback_id) {
       message: "linear connector secret refs must start with `linear/`",
     }
   }
-  return harness.secrets.read(raw)
+  return harness.read(raw)
 }
 
-fn __auth_token(harness: Harness, literal, secret_ref, fallback_id) {
+fn __auth_token(harness: HarnessSecrets, literal, secret_ref, fallback_id) {
   const raw = trim(to_string(literal ?? ""))
   if raw != "" {
     return raw
@@ -191,12 +191,12 @@ fn __secret_id_candidate(value, fallback_name) {
   return "linear/" + fallback_name
 }
 
-fn __secret_get_optional(harness: Harness, secret_id) {
+fn __secret_get_optional(harness: HarnessSecrets, secret_id) {
   if secret_id == nil {
     return nil
   }
   const value = try {
-    harness.secrets.read(secret_id)
+    harness.read(secret_id)
   }
   if is_ok(value) {
     return unwrap(value)
@@ -204,7 +204,7 @@ fn __secret_get_optional(harness: Harness, secret_id) {
   return nil
 }
 
-fn __secret_ref_with_alias(harness: Harness, value, fallback_name, fallback_id) {
+fn __secret_ref_with_alias(harness: HarnessSecrets, value, fallback_name, fallback_id) {
   const candidate = __secret_id_candidate(value, fallback_name)
   if candidate != nil {
     return __secret_get_optional(harness, candidate)
@@ -212,14 +212,14 @@ fn __secret_ref_with_alias(harness: Harness, value, fallback_name, fallback_id) 
   return __secret_get_optional(harness, fallback_id)
 }
 
-fn __metadata_secret_alias(harness: Harness, raw, name) {
+fn __metadata_secret_alias(harness: HarnessSecrets, raw, name) {
   const alias = raw?.metadata?.secret_ids?.[name] ?? raw?.metadata?.config?.secret_ids?.[name]
     ?? raw
     ?.config?.secret_ids?.[name]
   return __secret_get_optional(harness, __secret_id_candidate(alias, name))
 }
 
-fn __signing_secret(harness: Harness, raw) {
+fn __signing_secret(harness: HarnessSecrets, raw) {
   const metadata_alias = __metadata_secret_alias(harness, raw, "signing_secret")
   if metadata_alias != nil {
     return metadata_alias
@@ -253,9 +253,9 @@ fn __reject(status, code, message) {
   }
 }
 
-fn __metrics_inc(harness: Harness, name, amount = 1) {
+fn __metrics_inc(harness: HarnessObs, name, amount = 1) {
   const _ = try {
-    harness.obs.metrics_inc(name, amount)
+    harness.metrics_inc(name, amount)
   }
   return nil
 }
@@ -370,7 +370,7 @@ fn __verify(harness: Harness, raw, body) {
     raw_grace
   }
   if age_ms > (replay_window_secs + replay_grace_secs) * 1000 {
-    __metrics_inc(harness, "linear_webhook_replay_rejections", 1)
+    __metrics_inc(harness.obs, "linear_webhook_replay_rejections", 1)
     return __reject(
       401,
       "timestamp_out_of_window",
@@ -383,7 +383,7 @@ fn __verify(harness: Harness, raw, body) {
   }
   // F2: explicit missing_secret guard before hmac so we never compute
   // hmac_sha256(nil, body). Mirrors Slack's `slack/signing_secret` check.
-  const secret = __signing_secret(harness, raw)
+  const secret = __signing_secret(harness.secrets, raw)
   if secret == nil || trim(to_string(secret)) == "" {
     return __reject(
       401,
@@ -422,7 +422,7 @@ fn __event(raw, body) {
   }
 }
 
-fn __auth_config(harness: Harness, args) {
+fn __auth_config(harness: HarnessSecrets, args) {
   const config = args ?? {}
   if config?.api_token != nil || config?.api_token_secret != nil {
     return {
@@ -591,7 +591,7 @@ fn __graphql(harness: Harness, args) {
   if query == nil || trim(query) == "" {
     throw {message: "graphql requires query", code: "invalid_args"}
   }
-  const auth = __auth_config(harness, args)
+  const auth = __auth_config(harness.secrets, args)
   const authorization = if auth.oauth {
     "Bearer " + auth.token
   } else {
@@ -619,14 +619,14 @@ fn __graphql(harness: Harness, args) {
       body: json_stringify(request),
     },
   )
-  const header_meta = __graphql_meta(response?.headers ?? {}, query, request.variables)
+  const header_meta = __graphql_meta(response.headers ?? {}, query, request.variables)
   if __missing_http_response(response) {
     throw {
       message: to_string(
         response?.error?.message ?? "linear GraphQL request failed before receiving a response",
       ),
       code: "http_error",
-      status: response?.status,
+      status: response.status,
       category: response?.category ?? response?.error?.category,
       retryable: response?.retryable ?? response?.error?.retryable,
       errors: [],
@@ -839,7 +839,7 @@ pub fn activate(harness: Harness, bindings) {
     }
   }
   connector_state.bindings = resolved
-  __metrics_inc(harness, "linear_connector_activations", len(connector_state.bindings))
+  __metrics_inc(harness.obs, "linear_connector_activations", len(connector_state.bindings))
   return nil
 }
 
@@ -847,7 +847,7 @@ pub fn activate(harness: Harness, bindings) {
 pub fn shutdown(harness: Harness) {
   connector_state.bindings = []
   connector_state.ctx = nil
-  __metrics_inc(harness, "linear_connector_shutdown", 1)
+  __metrics_inc(harness.obs, "linear_connector_shutdown", 1)
   return nil
 }
 
