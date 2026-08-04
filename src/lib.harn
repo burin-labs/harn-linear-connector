@@ -151,10 +151,10 @@ fn __is_allowed_secret_id(value) {
   return raw.starts_with("linear/")
 }
 
-fn __secret_ref(harness: HarnessSecrets, value, fallback_id) {
+fn __secret_ref(secrets: HarnessSecrets, value, fallback_id) {
   const raw = trim(to_string(value ?? ""))
   if raw == "" {
-    return harness.read(fallback_id)
+    return secrets.read(fallback_id)
   }
   if !__is_allowed_secret_id(raw) {
     throw {
@@ -162,15 +162,15 @@ fn __secret_ref(harness: HarnessSecrets, value, fallback_id) {
       message: "linear connector secret refs must start with `linear/`",
     }
   }
-  return harness.read(raw)
+  return secrets.read(raw)
 }
 
-fn __auth_token(harness: HarnessSecrets, literal, secret_ref, fallback_id) {
+fn __auth_token(secrets: HarnessSecrets, literal, secret_ref, fallback_id) {
   const raw = trim(to_string(literal ?? ""))
   if raw != "" {
     return raw
   }
-  return __secret_ref(harness, secret_ref, fallback_id)
+  return __secret_ref(secrets, secret_ref, fallback_id)
 }
 
 fn __secret_id_candidate(value, fallback_name) {
@@ -191,12 +191,12 @@ fn __secret_id_candidate(value, fallback_name) {
   return "linear/" + fallback_name
 }
 
-fn __secret_get_optional(harness: HarnessSecrets, secret_id) {
+fn __secret_get_optional(secrets: HarnessSecrets, secret_id) {
   if secret_id == nil {
     return nil
   }
   const value = try {
-    harness.read(secret_id)
+    secrets.read(secret_id)
   }
   if is_ok(value) {
     return unwrap(value)
@@ -204,23 +204,23 @@ fn __secret_get_optional(harness: HarnessSecrets, secret_id) {
   return nil
 }
 
-fn __secret_ref_with_alias(harness: HarnessSecrets, value, fallback_name, fallback_id) {
+fn __secret_ref_with_alias(secrets: HarnessSecrets, value, fallback_name, fallback_id) {
   const candidate = __secret_id_candidate(value, fallback_name)
   if candidate != nil {
-    return __secret_get_optional(harness, candidate)
+    return __secret_get_optional(secrets, candidate)
   }
-  return __secret_get_optional(harness, fallback_id)
+  return __secret_get_optional(secrets, fallback_id)
 }
 
-fn __metadata_secret_alias(harness: HarnessSecrets, raw, name) {
+fn __metadata_secret_alias(secrets: HarnessSecrets, raw, name) {
   const alias = raw?.metadata?.secret_ids?.[name] ?? raw?.metadata?.config?.secret_ids?.[name]
     ?? raw
     ?.config?.secret_ids?.[name]
-  return __secret_get_optional(harness, __secret_id_candidate(alias, name))
+  return __secret_get_optional(secrets, __secret_id_candidate(alias, name))
 }
 
-fn __signing_secret(harness: HarnessSecrets, raw) {
-  const metadata_alias = __metadata_secret_alias(harness, raw, "signing_secret")
+fn __signing_secret(secrets: HarnessSecrets, raw) {
+  const metadata_alias = __metadata_secret_alias(secrets, raw, "signing_secret")
   if metadata_alias != nil {
     return metadata_alias
   }
@@ -230,7 +230,7 @@ fn __signing_secret(harness: HarnessSecrets, raw) {
     return to_string(literal)
   }
   return __secret_ref_with_alias(
-    harness,
+    secrets,
     config?.secrets?.signing_secret ?? config?.secret_ids?.signing_secret,
     "signing_secret",
     __default_signing_secret_id(),
@@ -253,9 +253,9 @@ fn __reject(status, code, message) {
   }
 }
 
-fn __metrics_inc(harness: HarnessObs, name, amount = 1) {
+fn __metrics_inc(obs: HarnessObs, name, amount = 1) {
   const _ = try {
-    harness.metrics_inc(name, amount)
+    obs.metrics_inc(name, amount)
   }
   return nil
 }
