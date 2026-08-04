@@ -17,8 +17,8 @@ fn refresh_body(body, fresh_ts_ms) {
   return json_stringify(updated)
 }
 
-fn raw(harness: HarnessClock, body, secret, configured_secret = nil) {
-  const fresh_ts_ms = to_int(harness.now().timestamp * 1000)
+fn raw(clock: HarnessClock, body, secret, configured_secret = nil) {
+  const fresh_ts_ms = to_int(clock.now().timestamp * 1000)
   const refreshed = refresh_body(body, fresh_ts_ms)
   return {
     kind: "webhook",
@@ -32,8 +32,8 @@ fn raw(harness: HarnessClock, body, secret, configured_secret = nil) {
   }
 }
 
-fn cloud_raw(harness: HarnessClock, body, secret) {
-  const fresh_ts_ms = to_int(harness.now().timestamp * 1000)
+fn cloud_raw(clock: HarnessClock, body, secret) {
+  const fresh_ts_ms = to_int(clock.now().timestamp * 1000)
   const refreshed = refresh_body(body, fresh_ts_ms)
   return {
     kind: "webhook",
@@ -52,12 +52,12 @@ fn cloud_raw(harness: HarnessClock, body, secret) {
   }
 }
 
-fn fixture_text(harness: HarnessFs, path) {
-  return trim(harness.read_text(path))
+fn fixture_text(fs: HarnessFs, path) {
+  return trim(fs.read_text(path))
 }
 
-fn fixture_json(harness: HarnessFs, path) {
-  return json_parse(harness.read_text(path))
+fn fixture_json(fs: HarnessFs, path) {
+  return json_parse(fs.read_text(path))
 }
 
 pipeline test(harness: Harness, task) {
