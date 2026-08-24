@@ -214,8 +214,7 @@ fn __secret_ref_with_alias(secrets: HarnessSecrets, value, fallback_name, fallba
 
 fn __metadata_secret_alias(secrets: HarnessSecrets, raw, name) {
   const alias = raw?.metadata?.secret_ids?.[name] ?? raw?.metadata?.config?.secret_ids?.[name]
-    ?? raw
-    ?.config?.secret_ids?.[name]
+    ?? raw?.config?.secret_ids?.[name]
   return __secret_get_optional(secrets, __secret_id_candidate(alias, name))
 }
 
@@ -504,9 +503,7 @@ fn __graphql_error_message(status, errors) {
     return "linear GraphQL request failed with status " + to_string(status)
   }
   return "linear GraphQL request failed with status " + to_string(status) + ": "
-    + to_string(
-    errors[0]?.message ?? "Linear GraphQL error",
-  )
+    + to_string(errors[0]?.message ?? "Linear GraphQL error")
 }
 
 fn __rate_limited(status, errors) {
@@ -666,10 +663,10 @@ fn __execute(harness: Harness, operation, variables, args) {
     harness,
     (args ?? {})
       + {
-      query: operation.document,
-      variables: variables,
-      operation_name: operation.operation_name ?? operation.name,
-    },
+        query: operation.document,
+        variables: variables,
+        operation_name: operation.operation_name ?? operation.name,
+      },
   )
   const result = if operation.root_field != nil {
     graphql_extract(envelope, operation.root_field, operation.result_schema)
@@ -761,10 +758,7 @@ fn __search(harness: Harness, args) {
   }
   const err = unwrap_err(primary)
   if !contains(to_string(err?.message ?? ""), "Unknown argument")
-    && !__has_graphql_error_code(
-    err?.errors,
-    "GRAPHQL_VALIDATION_FAILED",
-  ) {
+    && !__has_graphql_error_code(err?.errors, "GRAPHQL_VALIDATION_FAILED") {
     throw err
   }
   return __execute(harness, __search_operation(true), {term: query, first: first}, args).result
@@ -823,18 +817,14 @@ pub fn activate(harness: Harness, bindings) {
       throw {
         code: "replay_window_too_large",
         message: "linear binding replay_window_secs " + to_string(window) + " exceeds maximum "
-          + to_string(
-          max,
-        ),
+          + to_string(max),
       }
     }
     if grace != nil && to_int(grace) > max {
       throw {
         code: "replay_window_too_large",
         message: "linear binding replay_grace_secs " + to_string(grace) + " exceeds maximum "
-          + to_string(
-          max,
-        ),
+          + to_string(max),
       }
     }
   }
