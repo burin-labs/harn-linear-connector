@@ -11,13 +11,13 @@ import {
  * Rewrite a fixture body's webhookTimestamp to a fresh value so the
  * connector's clock-trusted replay window (F10) accepts it at test time.
  */
-fn refresh_body(body, fresh_ts_ms) {
+fn refresh_body(body: any, fresh_ts_ms: any) {
   const parsed = json_parse(body)
   const updated = parsed + {webhookTimestamp: fresh_ts_ms}
   return json_stringify(updated)
 }
 
-fn raw(clock: HarnessClock, body, secret, configured_secret = nil) {
+fn raw(clock: HarnessClock, body: any, secret: any, configured_secret: any = nil) {
   const fresh_ts_ms = to_int(clock.now().timestamp * 1000)
   const refreshed = refresh_body(body, fresh_ts_ms)
   return {
@@ -32,7 +32,7 @@ fn raw(clock: HarnessClock, body, secret, configured_secret = nil) {
   }
 }
 
-fn cloud_raw(clock: HarnessClock, body, secret) {
+fn cloud_raw(clock: HarnessClock, body: any, secret: any) {
   const fresh_ts_ms = to_int(clock.now().timestamp * 1000)
   const refreshed = refresh_body(body, fresh_ts_ms)
   return {
@@ -52,15 +52,15 @@ fn cloud_raw(clock: HarnessClock, body, secret) {
   }
 }
 
-fn fixture_text(fs: HarnessFs, path) {
+fn fixture_text(fs: HarnessFs, path: any) {
   return trim(fs.read_text(path))
 }
 
-fn fixture_json(fs: HarnessFs, path) {
+fn fixture_json(fs: HarnessFs, path: any) {
   return json_parse(fs.read_text(path))
 }
 
-pipeline test(harness: Harness, task) {
+pipeline test(harness: Harness, task: any) {
   activate(harness, [{id: "linear.test", kind: "webhook", config: {signing_secret: "test-secret"}}])
   assert_eq(provider_id(), "linear")
   assert_eq(kinds(), ["webhook"])

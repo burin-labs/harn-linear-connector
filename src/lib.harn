@@ -33,7 +33,7 @@ fn __allowed_api_hosts() {
   return ["api.linear.app"]
 }
 
-fn __extract_host(url) {
+fn __extract_host(url: any) {
   const trimmed = trim(to_string(url ?? ""))
   if trimmed == "" {
     return nil
@@ -66,7 +66,7 @@ fn __extract_host(url) {
   return lowercase(host)
 }
 
-fn __validate_api_base_url(url) {
+fn __validate_api_base_url(url: any) {
   const default_url = __default_api_base_url()
   if url == nil {
     return default_url
@@ -115,11 +115,11 @@ fn __search_issues_term_query() {
   return "query HarnLinearSearchIssues($term: String!, $first: Int) { searchIssues(term: $term, first: $first) { nodes { id identifier title url priority state { id name type } team { id key name } } pageInfo { hasNextPage endCursor } } }"
 }
 
-fn __header(headers, name) {
+fn __header(headers: any, name: any) {
   return connector_http_header(headers ?? {}, name)
 }
 
-fn __binding_for_raw(raw) {
+fn __binding_for_raw(raw: any) {
   const binding_id = raw?.binding_id ?? raw?.metadata?.binding_id
   if binding_id != nil {
     for binding in connector_state.bindings {
@@ -134,7 +134,7 @@ fn __binding_for_raw(raw) {
   return {config: {}}
 }
 
-fn __binding_config(raw) {
+fn __binding_config(raw: any) {
   return raw?.config ?? raw?.metadata?.config ?? __binding_for_raw(raw)?.config ?? {}
 }
 
@@ -143,7 +143,7 @@ fn __binding_config(raw) {
  * A raw value like `othertenant/api-token` could otherwise cross-tenant
  * leak if the secret backend doesn't enforce isolation.
  */
-fn __is_allowed_secret_id(value) {
+fn __is_allowed_secret_id(value: any) {
   const raw = trim(to_string(value ?? ""))
   if raw == "" {
     return false
@@ -151,7 +151,7 @@ fn __is_allowed_secret_id(value) {
   return raw.starts_with("linear/")
 }
 
-fn __secret_ref(secrets: HarnessSecrets, value, fallback_id) {
+fn __secret_ref(secrets: HarnessSecrets, value: any, fallback_id: any) {
   const raw = trim(to_string(value ?? ""))
   if raw == "" {
     return secrets.read(fallback_id)
@@ -165,7 +165,7 @@ fn __secret_ref(secrets: HarnessSecrets, value, fallback_id) {
   return secrets.read(raw)
 }
 
-fn __auth_token(secrets: HarnessSecrets, literal, secret_ref, fallback_id) {
+fn __auth_token(secrets: HarnessSecrets, literal: any, secret_ref: any, fallback_id: any) {
   const raw = trim(to_string(literal ?? ""))
   if raw != "" {
     return raw
@@ -173,7 +173,7 @@ fn __auth_token(secrets: HarnessSecrets, literal, secret_ref, fallback_id) {
   return __secret_ref(secrets, secret_ref, fallback_id)
 }
 
-fn __secret_id_candidate(value, fallback_name) {
+fn __secret_id_candidate(value: any, fallback_name: any) {
   const raw = trim(to_string(value ?? ""))
   if raw == "" {
     return nil
@@ -191,7 +191,7 @@ fn __secret_id_candidate(value, fallback_name) {
   return "linear/" + fallback_name
 }
 
-fn __secret_get_optional(secrets: HarnessSecrets, secret_id) {
+fn __secret_get_optional(secrets: HarnessSecrets, secret_id: any) {
   if secret_id == nil {
     return nil
   }
@@ -204,7 +204,12 @@ fn __secret_get_optional(secrets: HarnessSecrets, secret_id) {
   return nil
 }
 
-fn __secret_ref_with_alias(secrets: HarnessSecrets, value, fallback_name, fallback_id) {
+fn __secret_ref_with_alias(
+  secrets: HarnessSecrets,
+  value: any,
+  fallback_name: any,
+  fallback_id: any,
+) {
   const candidate = __secret_id_candidate(value, fallback_name)
   if candidate != nil {
     return __secret_get_optional(secrets, candidate)
@@ -212,13 +217,13 @@ fn __secret_ref_with_alias(secrets: HarnessSecrets, value, fallback_name, fallba
   return __secret_get_optional(secrets, fallback_id)
 }
 
-fn __metadata_secret_alias(secrets: HarnessSecrets, raw, name) {
+fn __metadata_secret_alias(secrets: HarnessSecrets, raw: any, name: any) {
   const alias = raw?.metadata?.secret_ids?.[name] ?? raw?.metadata?.config?.secret_ids?.[name]
     ?? raw?.config?.secret_ids?.[name]
   return __secret_get_optional(secrets, __secret_id_candidate(alias, name))
 }
 
-fn __signing_secret(secrets: HarnessSecrets, raw) {
+fn __signing_secret(secrets: HarnessSecrets, raw: any) {
   const metadata_alias = __metadata_secret_alias(secrets, raw, "signing_secret")
   if metadata_alias != nil {
     return metadata_alias
@@ -236,14 +241,14 @@ fn __signing_secret(secrets: HarnessSecrets, raw) {
   )
 }
 
-fn __unix_ms(value) {
+fn __unix_ms(value: any) {
   if type_of(value) == "string" {
     return to_int(value)
   }
   return to_int(value)
 }
 
-fn __reject(status, code, message) {
+fn __reject(status: any, code: any, message: any) {
   return {
     type: "reject",
     status: status,
@@ -252,14 +257,14 @@ fn __reject(status, code, message) {
   }
 }
 
-fn __metrics_inc(obs: HarnessObs, name, amount = 1) {
+fn __metrics_inc(obs: HarnessObs, name: any, amount: any = 1) {
   const _ = try {
     obs.metrics_inc(name, amount)
   }
   return nil
 }
 
-fn __normalize_resource(raw_type) {
+fn __normalize_resource(raw_type: any) {
   const value = lowercase(to_string(raw_type ?? ""))
   if value == "issue" {
     return "issue"
@@ -288,11 +293,11 @@ fn __normalize_resource(raw_type) {
   return value
 }
 
-fn __valid_action(action) {
+fn __valid_action(action: any) {
   return action == "create" || action == "update" || action == "remove"
 }
 
-fn __dedupe_key(raw, body) {
+fn __dedupe_key(raw: any, body: any) {
   // F3: prefer the signed-body webhookId over the linear-delivery header so
   // attackers cannot bypass dedupe by replaying captured (body, signature)
   // pairs while rotating the header.
@@ -319,7 +324,7 @@ fn __replay_window_default_secs() {
   return 60
 }
 
-fn __verify(harness: Harness, raw, body) {
+fn __verify(harness: Harness, raw: any, body: any) {
   if body?.webhookTimestamp == nil {
     return __reject(400, "missing_webhook_timestamp", "Linear webhookTimestamp is required")
   }
@@ -396,7 +401,7 @@ fn __verify(harness: Harness, raw, body) {
   return nil
 }
 
-fn __event(raw, body) {
+fn __event(raw: any, body: any) {
   const resource = __normalize_resource(body?.type ?? __header(raw.headers, "linear-event"))
   const action = body?.action ?? "update"
   if !__valid_action(action) {
@@ -421,7 +426,7 @@ fn __event(raw, body) {
   }
 }
 
-fn __auth_config(harness: HarnessSecrets, args) {
+fn __auth_config(harness: HarnessSecrets, args: any) {
   const config = args ?? {}
   if config?.api_token != nil || config?.api_token_secret != nil {
     return {
@@ -485,11 +490,11 @@ fn __auth_config(harness: HarnessSecrets, args) {
   }
 }
 
-fn __graphql_error_codes(errors) {
+fn __graphql_error_codes(errors: any) {
   return (errors ?? []).map({ error -> to_string(error?.extensions?.code ?? "") })
 }
 
-fn __has_graphql_error_code(errors, wanted) {
+fn __has_graphql_error_code(errors: any, wanted: any) {
   for code in __graphql_error_codes(errors) {
     if lowercase(code) == lowercase(wanted) {
       return true
@@ -498,7 +503,7 @@ fn __has_graphql_error_code(errors, wanted) {
   return false
 }
 
-fn __graphql_error_message(status, errors) {
+fn __graphql_error_message(status: any, errors: any) {
   if len(errors ?? []) == 0 {
     return "linear GraphQL request failed with status " + to_string(status)
   }
@@ -506,11 +511,11 @@ fn __graphql_error_message(status, errors) {
     + to_string(errors[0]?.message ?? "Linear GraphQL error")
 }
 
-fn __rate_limited(status, errors) {
+fn __rate_limited(status: any, errors: any) {
   return status == 429 || (status == 400 && __has_graphql_error_code(errors, "RATELIMITED"))
 }
 
-fn __int_header(headers, name) {
+fn __int_header(headers: any, name: any) {
   const value = connector_http_header(headers ?? {}, name)
   if value == nil || trim(to_string(value)) == "" {
     return nil
@@ -524,7 +529,7 @@ fn __int_header(headers, name) {
   return nil
 }
 
-fn __complexity_estimate(query, variables) {
+fn __complexity_estimate(query: any, variables: any) {
   if query == nil || trim(query) == "" {
     return nil
   }
@@ -541,7 +546,7 @@ fn __complexity_estimate(query, variables) {
   return 2
 }
 
-fn __graphql_meta(headers, query, variables = nil) {
+fn __graphql_meta(headers: any, query: any, variables: any = nil) {
   const estimate = __complexity_estimate(query, variables ?? {})
   const observed = __int_header(headers, "x-complexity")
   const complexity = observed ?? estimate ?? 0
@@ -560,7 +565,7 @@ fn __graphql_meta(headers, query, variables = nil) {
   }
 }
 
-fn __meta_with_complexity(meta, header_meta) {
+fn __meta_with_complexity(meta: any, header_meta: any) {
   return merge(
     meta ?? {},
     {
@@ -571,11 +576,11 @@ fn __meta_with_complexity(meta, header_meta) {
   )
 }
 
-fn __missing_http_response(response) {
+fn __missing_http_response(response: any) {
   return !(response?.ok ?? false) && response?.status == nil && response?.body == nil
 }
 
-fn __required_string(args, field) {
+fn __required_string(args: any, field: any) {
   const value = args?.[field]
   if value == nil || trim(to_string(value)) == "" {
     throw {message: "linear " + field + " is required", code: "invalid_args", field: field}
@@ -583,7 +588,7 @@ fn __required_string(args, field) {
   return to_string(value)
 }
 
-fn __graphql(harness: Harness, args) {
+fn __graphql(harness: Harness, args: any) {
   const query = args?.query
   if query == nil || trim(query) == "" {
     throw {message: "graphql requires query", code: "invalid_args"}
@@ -604,7 +609,6 @@ fn __graphql(harness: Harness, args) {
     harness.clock,
     harness.net,
     "POST",
-    harness.net,
     api_base_url,
     {
       provider: "linear",
@@ -654,11 +658,11 @@ fn __graphql(harness: Harness, args) {
   return merge(envelope, {meta: merged_meta})
 }
 
-fn __operation(name, document, options = nil) {
+fn __operation(name: any, document: any, options: any = nil) {
   return graphql_operation(name, document, options)
 }
 
-fn __execute(harness: Harness, operation, variables, args) {
+fn __execute(harness: Harness, operation: any, variables: any, args: any) {
   const envelope = __graphql(
     harness,
     (args ?? {})
@@ -705,7 +709,7 @@ fn __create_comment_operation() {
   )
 }
 
-fn __search_operation(use_term = false) {
+fn __search_operation(use_term: any = false) {
   const document = if use_term {
     __search_issues_term_query()
   } else {
@@ -714,7 +718,7 @@ fn __search_operation(use_term = false) {
   return __operation("HarnLinearSearchIssues", document, {root_field: "searchIssues"})
 }
 
-fn __list_issues(harness: Harness, args) {
+fn __list_issues(harness: Harness, args: any) {
   const connection = __execute(
     harness,
     __list_issues_operation(),
@@ -729,7 +733,7 @@ fn __list_issues(harness: Harness, args) {
   return merge(connection, {page: graphql_page_info(connection)})
 }
 
-fn __update_issue(harness: Harness, args) {
+fn __update_issue(harness: Harness, args: any) {
   return __execute(
     harness,
     __update_issue_operation(),
@@ -738,7 +742,7 @@ fn __update_issue(harness: Harness, args) {
   ).result
 }
 
-fn __create_comment(harness: Harness, args) {
+fn __create_comment(harness: Harness, args: any) {
   return __execute(
     harness,
     __create_comment_operation(),
@@ -747,7 +751,7 @@ fn __create_comment(harness: Harness, args) {
   ).result
 }
 
-fn __search(harness: Harness, args) {
+fn __search(harness: Harness, args: any) {
   const first = args?.first ?? 10
   const query = __required_string(args, "query")
   const primary = try {
@@ -797,13 +801,13 @@ pub fn payload_schema() {
 }
 
 /** Initialize connector process state. */
-pub fn init(harness: Harness, ctx) {
+pub fn init(harness: Harness, ctx: any) {
   connector_state.ctx = ctx
   return nil
 }
 
 /** Activate Linear trigger bindings for inbound and outbound configuration. */
-pub fn activate(harness: Harness, bindings) {
+pub fn activate(harness: Harness, bindings: any) {
   const resolved = bindings ?? []
   // F4: reject bindings that try to widen the replay window beyond
   // __replay_window_max_secs(). A configured 24h window is a sharp edge
@@ -842,7 +846,7 @@ pub fn shutdown(harness: Harness) {
 }
 
 /** Verify and normalize one Linear inbound webhook into NormalizeResult v1. */
-pub fn normalize_inbound(harness: Harness, raw) {
+pub fn normalize_inbound(harness: Harness, raw: any) {
   const body = raw.body_json ?? json_parse(raw.body_text ?? "{}")
   const rejection = __verify(harness, raw, body)
   if rejection != nil {
@@ -852,7 +856,7 @@ pub fn normalize_inbound(harness: Harness, raw) {
 }
 
 /** Dispatch outbound Linear connector methods. */
-pub fn call(harness: Harness, method, args) {
+pub fn call(harness: Harness, method: any, args: any) {
   if method == "graphql" {
     return __graphql(harness, args ?? {})
   }

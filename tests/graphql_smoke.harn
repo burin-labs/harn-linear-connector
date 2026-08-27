@@ -1,6 +1,6 @@
 import { call } from "../src/lib.harn"
 
-fn recorded_header(headers, name) {
+fn recorded_header(headers: any, name: any) {
   const wanted = lowercase(name)
   for entry in headers ?? {} {
     if lowercase(entry.key) == wanted {
@@ -10,7 +10,7 @@ fn recorded_header(headers, name) {
   return nil
 }
 
-pipeline test(harness: Harness, task) {
+pipeline test(harness: Harness, task: any) {
   harness.net.egress_policy({allow: ["api.linear.app"], default: "deny"})
   harness.testing.http_mock_clear()
   harness.testing.http_mock(
