@@ -609,7 +609,6 @@ fn __graphql(harness: Harness, args: any) {
     harness.clock,
     harness.net,
     "POST",
-    harness.net,
     api_base_url,
     {
       provider: "linear",
