@@ -10,7 +10,7 @@ fn recorded_header(headers: any, name: any) {
   return nil
 }
 
-pipeline test(harness: Harness, task: any) {
+pipeline test_graphql_outbound(harness: Harness, task: any) {
   harness.net.egress_policy({allow: ["api.linear.app"], default: "deny"})
   harness.testing.http_mock_clear()
   harness.testing.http_mock(
