@@ -1,0 +1,48 @@
+# Label taxonomy for harn-linear-connector.
+#
+# The priority, status, and effort categories are the shared org taxonomy and
+# must match burin-labs/.github/.github/labels.yml verbatim. Type labels reuse
+# the repository defaults (bug, enhancement) instead of duplicating them.
+#
+# This file is a record of intent. Applying it to the repository is a settings
+# change and belongs to the founder. See docs/repo-settings-proposal.md.
+
+- name: priority/p0
+  description: Must have, ships before anything else in flight
+  color: b60205
+- name: priority/p1
+  description: High priority
+  color: d93f0b
+- name: priority/p2
+  description: Medium priority
+  color: fbca04
+- name: priority/p3
+  description: Lower priority
+  color: 0e8a16
+
+- name: status/blocked
+  description: Cannot proceed until a named dependency clears
+  color: d93f0b
+- name: status/in-progress
+  description: An agent or engineer is actively working this
+  color: 0e8a16
+- name: status/needs-decision
+  description: Needs a founder or code-owner ruling before work continues
+  color: fbca04
+- name: status/ready
+  description: Scoped and unblocked, ready to pick up
+  color: 0e8a16
+
+- name: effort/small
+  description: Hours
+  color: c2e0c6
+- name: effort/medium
+  description: A day or two
+  color: fbca04
+- name: effort/large
+  description: Multi-day or multi-PR
+  color: d93f0b
+
+- name: area/core
+  description: The Linear connector surface and its fixtures
+  color: 1d76db
