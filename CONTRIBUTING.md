@@ -41,10 +41,14 @@ Use `[Area] Sentence case summary`. The area is the part of the repository
 you touched, in square brackets. The summary starts with a capital letter,
 stays in sentence case, and does not end with a period.
 
+Capitalize the area tag exactly as it is written here. The shared
+`pr-title-check` action matches the tag literally, so a lower-case tag
+fails once the check is wired in.
+
 ```
-[connector] Verify the webhook signature before parsing the payload
-[ci] Pin the release workflow to the fleet-managed action
-[docs] Explain the outbound dispatch allowlist
+[Connector] Verify the webhook signature before parsing the payload
+[CI] Pin the release workflow to the fleet-managed action
+[Docs] Explain the outbound dispatch allowlist
 ```
 
 ### Scope

@@ -44,7 +44,7 @@ provider-specific notes and local hazards here.
 ## Pull request titles
 
 Use `[Area] Sentence case summary`, for example
-`[connector] Verify the webhook signature before parsing the payload`. The
+`[Connector] Verify the webhook signature before parsing the payload`. The
 summary starts with a capital letter and does not end with a period. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for scope rules and the files this
 repository does not accept hand edits to.
