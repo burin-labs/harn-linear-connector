@@ -2,7 +2,7 @@ import { call } from "../src/lib.harn"
 
 fn recorded_header(headers: any, name: any) {
   const wanted = lowercase(name)
-  for entry in headers ?? {} {
+  for entry in (headers ?? {}) {
     if lowercase(entry.key) == wanted {
       return entry.value
     }
